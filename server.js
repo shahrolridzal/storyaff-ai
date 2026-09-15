@@ -13,6 +13,10 @@ const PORT = process.env.PORT || 3000;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_MODEL =
+    process.env.OPENROUTER_MODEL || "openrouter/free";
+
 // ==========================================
 // HOME
 // ==========================================
@@ -21,9 +25,12 @@ app.get("/", (req, res) => {
     res.json({
         success: true,
         app: "StoryAff AI",
-        version: "1.1.0",
+        version: "1.2.0",
         status: "online",
-        ai: GEMINI_API_KEY ? "connected" : "not_configured"
+        ai: {
+            gemini: GEMINI_API_KEY ? "configured" : "not_configured",
+            openrouter: OPENROUTER_API_KEY ? "configured" : "not_configured"
+        }
     });
 });
 
@@ -40,12 +47,285 @@ app.get("/health", (req, res) => {
 });
 
 // ==========================================
+// HELPER - WAIT
+// ==========================================
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// ==========================================
+// GEMINI CALL
+// ==========================================
+
+async function callGemini(prompt) {
+
+    if (!GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is not configured.");
+    }
+
+    const url =
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            systemInstruction: {
+                parts: [
+                    {
+                        text: `
+You are StoryAff AI.
+
+You are a careful Malaysian affiliate storytelling writer.
+
+Never fabricate product facts.
+
+Never fabricate personal experiences.
+
+Never fabricate testimonials.
+
+Always obey the 6-10 part storytelling structure.
+
+IMPORTANT:
+The backend will handle the affiliate URL separately.
+
+DO NOT create, invent, modify, or include any URL.
+
+DO NOT include any affiliate link.
+
+The final part should contain a natural CTA and affiliate disclosure wording,
+but NOT the actual URL.
+
+Return ONLY valid JSON.
+`
+                    }
+                ]
+            },
+
+            contents: [
+                {
+                    parts: [
+                        {
+                            text: prompt
+                        }
+                    ]
+                }
+            ],
+
+            generationConfig: {
+                temperature: 0.85,
+                responseMimeType: "application/json"
+            }
+        })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+
+        const error = new Error(
+            data?.error?.message ||
+            `Gemini request failed with status ${response.status}`
+        );
+
+        error.status = response.status;
+        error.provider = "gemini";
+        error.details = data;
+
+        throw error;
+    }
+
+    const aiText =
+        data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    if (!aiText) {
+        const error = new Error("Gemini returned an empty response.");
+        error.status = 502;
+        error.provider = "gemini";
+
+        throw error;
+    }
+
+    return aiText;
+}
+
+// ==========================================
+// GEMINI WITH RETRY
+// ==========================================
+
+async function callGeminiWithRetry(prompt) {
+
+    const maxAttempts = 2;
+
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+
+        try {
+
+            console.log(
+                `Gemini attempt ${attempt}/${maxAttempts}`
+            );
+
+            const result = await callGemini(prompt);
+
+            console.log("Gemini request successful.");
+
+            return result;
+
+        } catch (error) {
+
+            lastError = error;
+
+            console.log(
+                `Gemini attempt ${attempt} failed:`,
+                error.message
+            );
+
+            const status = error.status;
+
+            const retryable =
+                status === 429 ||
+                status === 500 ||
+                status === 502 ||
+                status === 503 ||
+                status === 504;
+
+            if (!retryable || attempt === maxAttempts) {
+                break;
+            }
+
+            console.log("Retrying Gemini in 1500ms...");
+
+            await sleep(1500);
+        }
+    }
+
+    throw lastError;
+}
+
+// ==========================================
+// OPENROUTER CALL
+// ==========================================
+
+async function callOpenRouter(prompt) {
+
+    if (!OPENROUTER_API_KEY) {
+
+        const error = new Error(
+            "OPENROUTER_API_KEY is not configured."
+        );
+
+        error.status = 500;
+        error.provider = "openrouter";
+
+        throw error;
+    }
+
+    const response = await fetch(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization":
+                    `Bearer ${OPENROUTER_API_KEY}`,
+                "HTTP-Referer":
+                    "https://storyaff-ai.onrender.com",
+                "X-Title":
+                    "StoryAff AI"
+            },
+
+            body: JSON.stringify({
+                model: OPENROUTER_MODEL,
+
+                messages: [
+                    {
+                        role: "system",
+                        content: `
+You are StoryAff AI.
+
+You are a careful Malaysian affiliate storytelling writer.
+
+Never fabricate product facts.
+
+Never fabricate personal experiences.
+
+Never fabricate testimonials.
+
+Always obey the 6-10 part storytelling structure.
+
+IMPORTANT:
+The backend will handle the affiliate URL separately.
+
+DO NOT create, invent, modify, or include any URL.
+
+DO NOT include any affiliate link.
+
+The final part should contain a natural CTA and affiliate disclosure wording,
+but NOT the actual URL.
+
+Return ONLY valid JSON.
+`
+                    },
+
+                    {
+                        role: "user",
+                        content: prompt
+                    }
+                ],
+
+                temperature: 0.85
+            })
+        }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+
+        const error = new Error(
+            data?.error?.message ||
+            `OpenRouter request failed with status ${response.status}`
+        );
+
+        error.status = response.status;
+        error.provider = "openrouter";
+        error.details = data;
+
+        throw error;
+    }
+
+    const aiText =
+        data?.choices?.[0]?.message?.content || "";
+
+    if (!aiText) {
+
+        const error = new Error(
+            "OpenRouter returned an empty response."
+        );
+
+        error.status = 502;
+        error.provider = "openrouter";
+
+        throw error;
+    }
+
+    return aiText;
+}
+
+// ==========================================
 // AI TEST
 // ==========================================
 
 app.get("/api/ai/test", async (req, res) => {
 
     if (!GEMINI_API_KEY) {
+
         return res.status(500).json({
             success: false,
             error: "GEMINI_API_KEY is not configured in Render."
@@ -59,15 +339,18 @@ app.get("/api/ai/test", async (req, res) => {
 
         const response = await fetch(url, {
             method: "POST",
+
             headers: {
                 "Content-Type": "application/json"
             },
+
             body: JSON.stringify({
                 contents: [
                     {
                         parts: [
                             {
-                                text: "Reply with exactly: StoryAff AI Gemini connection successful."
+                                text:
+                                    "Reply with exactly: StoryAff AI Gemini connection successful."
                             }
                         ]
                     }
@@ -78,6 +361,7 @@ app.get("/api/ai/test", async (req, res) => {
         const data = await response.json();
 
         if (!response.ok) {
+
             return res.status(response.status).json({
                 success: false,
                 error: "Gemini API error",
@@ -111,10 +395,12 @@ app.get("/api/ai/test", async (req, res) => {
 
 app.post("/api/ai/generate", async (req, res) => {
 
-    if (!GEMINI_API_KEY) {
+    if (!GEMINI_API_KEY && !OPENROUTER_API_KEY) {
+
         return res.status(500).json({
             success: false,
-            error: "GEMINI_API_KEY is not configured in Render."
+            error:
+                "No AI provider is configured. Please configure Gemini or OpenRouter."
         });
     }
 
@@ -127,10 +413,23 @@ app.post("/api/ai/generate", async (req, res) => {
             style = "personal_story"
         } = req.body;
 
+        // ==========================================
+        // VALIDATION
+        // ==========================================
+
         if (!product_name) {
+
             return res.status(400).json({
                 success: false,
                 error: "product_name is required."
+            });
+        }
+
+        if (!affiliate_url) {
+
+            return res.status(400).json({
+                success: false,
+                error: "affiliate_url is required."
             });
         }
 
@@ -141,7 +440,7 @@ app.post("/api/ai/generate", async (req, res) => {
         const prompt = `
 You are StoryAff AI.
 
-Your job is to create a natural, engaging Malaysian Malay storytelling thread for an affiliate product.
+Create a natural, engaging Malaysian Malay storytelling thread for an affiliate product.
 
 PRODUCT NAME:
 ${product_name}
@@ -149,11 +448,13 @@ ${product_name}
 PRODUCT DESCRIPTION:
 ${product_description || "No additional description provided."}
 
-AFFILIATE URL:
-${affiliate_url || ""}
-
 STORY STYLE:
 ${style}
+
+IMPORTANT:
+The affiliate URL is handled by the backend.
+
+DO NOT include any URL in your response.
 
 ==========================================
 STORY STRUCTURE
@@ -179,17 +480,23 @@ PART STRUCTURE
 ==========================================
 
 PART 1
+
 Strong hook.
 
 The first part must make people curious enough to continue reading.
 
+Do not reveal the product immediately unless necessary.
+
 PART 2
+
 Introduce the situation, problem, observation or context.
 
 PART 3+
+
 Develop the story naturally.
 
 You may use:
+
 - curiosity
 - problem
 - discovery
@@ -203,41 +510,16 @@ You may use:
 The exact structure depends on the product and selected style.
 
 FINAL PART
+
 The final part must:
+
 - conclude the story
 - provide a natural CTA
-- contain the affiliate link
-- contain the affiliate disclosure
+- contain a natural affiliate disclosure
 
-==========================================
-AFFILIATE LINK RULE
-==========================================
+DO NOT include the actual affiliate URL.
 
-CRITICAL:
-
-The affiliate URL:
-
-${affiliate_url || ""}
-
-MUST NOT appear anywhere in Parts 1 through 9.
-
-The affiliate URL may ONLY appear in the FINAL PART.
-
-If the story contains 6 parts, the link appears in Part 6.
-
-If the story contains 7 parts, the link appears in Part 7.
-
-If the story contains 8 parts, the link appears in Part 8.
-
-If the story contains 9 parts, the link appears in Part 9.
-
-If the story contains 10 parts, the link appears in Part 10.
-
-The URL must remain EXACTLY as provided.
-
-Do not shorten it.
-Do not modify it.
-Do not create another URL.
+The backend will insert the exact affiliate URL after the AI response.
 
 ==========================================
 WRITING STYLE
@@ -264,6 +546,7 @@ Do not claim the writer personally used the product unless that information is e
 Do not create fake testimonials.
 
 Do not invent:
+
 - prices
 - discounts
 - specifications
@@ -289,6 +572,7 @@ Avoid giant paragraphs.
 The reader should naturally want to continue to the next part.
 
 Do not start every part with:
+
 "Part 1"
 "Part 2"
 etc.
@@ -332,8 +616,7 @@ Use exactly this structure:
   ],
   "final_cta": "",
   "affiliate_disclosure": "",
-  "hashtags": [],
-  "full_thread": ""
+  "hashtags": []
 }
 
 IMPORTANT:
@@ -342,83 +625,103 @@ part_count MUST be between 6 and 10.
 
 The number of objects inside "parts" MUST equal part_count.
 
-The affiliate URL MUST appear ONLY in the final part.
+DO NOT include any URL anywhere in the JSON.
 
-The affiliate URL MUST also appear in "full_thread" only where the final part appears.
+DO NOT create any URL.
 
-Do not put the affiliate URL in any other field.
+DO NOT modify any URL.
+
+DO NOT mention the affiliate URL.
 `;
 
-        const url =
-            `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+        // ==========================================
+        // AI PROVIDER
+        // ==========================================
 
-        const response = await fetch(url, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                systemInstruction: {
-                    parts: [
-                        {
-                            text: `
-You are StoryAff AI.
+        let aiText = "";
+        let providerUsed = "";
 
-You are a careful Malaysian affiliate storytelling writer.
+        // ------------------------------------------
+        // TRY GEMINI FIRST
+        // ------------------------------------------
 
-Never fabricate product facts.
+        if (GEMINI_API_KEY) {
 
-Never fabricate personal experiences.
+            try {
 
-Never fabricate testimonials.
+                aiText =
+                    await callGeminiWithRetry(prompt);
 
-Always obey the 6-10 part storytelling structure.
+                providerUsed = "gemini";
 
-The affiliate URL must only appear in the final part.
-`
-                        }
-                    ]
-                },
+            } catch (geminiError) {
 
-                contents: [
-                    {
-                        parts: [
-                            {
-                                text: prompt
-                            }
-                        ]
-                    }
-                ],
+                console.log(
+                    "Gemini failed. Trying OpenRouter fallback..."
+                );
 
-                generationConfig: {
-                    temperature: 0.85,
-                    responseMimeType: "application/json"
-                }
-            })
-        });
+                console.log(
+                    "Gemini error:",
+                    geminiError.message
+                );
+            }
+        }
 
-        const data = await response.json();
+        // ------------------------------------------
+        // FALLBACK TO OPENROUTER
+        // ------------------------------------------
 
-        if (!response.ok) {
-            return res.status(response.status).json({
+        if (!aiText && OPENROUTER_API_KEY) {
+
+            try {
+
+                aiText =
+                    await callOpenRouter(prompt);
+
+                providerUsed = "openrouter";
+
+            } catch (openRouterError) {
+
+                console.log(
+                    "OpenRouter failed:",
+                    openRouterError.message
+                );
+
+                return res.status(502).json({
+                    success: false,
+                    error: "Both AI providers failed.",
+                    gemini: "failed",
+                    openrouter: "failed",
+                    details: openRouterError.message
+                });
+            }
+        }
+
+        if (!aiText) {
+
+            return res.status(502).json({
                 success: false,
-                error: "Gemini API error",
-                details: data
+                error:
+                    "AI generation failed. No fallback provider available."
             });
         }
 
-        const aiText =
-            data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+        // ==========================================
+        // PARSE AI JSON
+        // ==========================================
 
         let result;
 
         try {
+
             result = JSON.parse(aiText);
+
         } catch (parseError) {
 
             return res.status(500).json({
                 success: false,
-                error: "Gemini returned invalid JSON.",
+                error: "AI returned invalid JSON.",
+                provider: providerUsed,
                 raw_response: aiText
             });
         }
@@ -431,77 +734,158 @@ The affiliate URL must only appear in the final part.
             !result.parts ||
             !Array.isArray(result.parts)
         ) {
+
             return res.status(500).json({
                 success: false,
-                error: "AI response does not contain valid parts."
+                error:
+                    "AI response does not contain valid parts.",
+                provider: providerUsed
             });
         }
 
         const partCount = result.parts.length;
 
         if (partCount < 6 || partCount > 10) {
+
             return res.status(500).json({
                 success: false,
-                error: "AI generated an invalid number of parts.",
-                part_count: partCount
+                error:
+                    "AI generated an invalid number of parts.",
+                part_count: partCount,
+                provider: providerUsed
             });
         }
 
         // ==========================================
-        // AFFILIATE LINK SECURITY CHECK
+        // CHECK THAT AI DID NOT GENERATE URL
         // ==========================================
 
-        if (affiliate_url) {
+        const urlPattern =
+            /(https?:\/\/|www\.|s\.shopee\.com|shopee\.com)/i;
 
-            let earlyPartContainsLink = false;
+        let aiGeneratedUrl = false;
 
-            for (let i = 0; i < result.parts.length - 1; i++) {
-
-                if (
-                    result.parts[i].text &&
-                    result.parts[i].text.includes(affiliate_url)
-                ) {
-                    earlyPartContainsLink = true;
-                }
-            }
-
-            if (earlyPartContainsLink) {
-
-                return res.status(500).json({
-                    success: false,
-                    error: "Security check failed: affiliate URL appeared before the final part."
-                });
-            }
-
-            const finalPart =
-                result.parts[result.parts.length - 1];
+        for (const part of result.parts) {
 
             if (
-                !finalPart.text ||
-                !finalPart.text.includes(affiliate_url)
+                part.text &&
+                urlPattern.test(part.text)
             ) {
-
-                return res.status(500).json({
-                    success: false,
-                    error: "Security check failed: affiliate URL is missing from the final part."
-                });
+                aiGeneratedUrl = true;
+                break;
             }
+        }
+
+        if (aiGeneratedUrl) {
+
+            return res.status(500).json({
+                success: false,
+                error:
+                    "Security check failed: AI generated a URL. No affiliate link was inserted.",
+                provider: providerUsed
+            });
+        }
+
+        // ==========================================
+        // FINAL PART
+        // ==========================================
+
+        const finalPartIndex =
+            result.parts.length - 1;
+
+        let finalPart =
+            result.parts[finalPartIndex].text || "";
+
+        // Remove accidental duplicate disclosure
+        finalPart =
+            finalPart
+                .replace(/\(Pautan afiliat\)/gi, "")
+                .trim();
+
+        // ==========================================
+        // BACKEND INSERTS EXACT AFFILIATE URL
+        // ==========================================
+
+        finalPart =
+            `${finalPart}\n\n👉 ${affiliate_url}\n(Pautan afiliat)`;
+
+        result.parts[finalPartIndex].text =
+            finalPart;
+
+        // ==========================================
+        // FINAL CTA
+        // ==========================================
+
+        if (!result.final_cta) {
+
+            result.final_cta =
+                "Kalau nak tengok detail produk, boleh check link di bawah.";
+        }
+
+        if (!result.affiliate_disclosure) {
+
+            result.affiliate_disclosure =
+                "(Pautan afiliat)";
         }
 
         // ==========================================
         // BUILD FULL THREAD
         // ==========================================
 
-        const fullThread = result.parts
-            .map((part) => part.text)
-            .join("\n\n");
+        const fullThread =
+            result.parts
+                .map((part) => part.text)
+                .join("\n\n");
 
         result.full_thread = fullThread;
         result.part_count = partCount;
 
+        // ==========================================
+        // FINAL SECURITY CHECK
+        // ==========================================
+
+        for (let i = 0; i < result.parts.length - 1; i++) {
+
+            if (
+                result.parts[i].text &&
+                result.parts[i].text.includes(affiliate_url)
+            ) {
+
+                return res.status(500).json({
+                    success: false,
+                    error:
+                        "Security check failed: affiliate URL appeared before final part."
+                });
+            }
+        }
+
+        if (
+            !result.parts[finalPartIndex].text.includes(
+                affiliate_url
+            )
+        ) {
+
+            return res.status(500).json({
+                success: false,
+                error:
+                    "Security check failed: exact affiliate URL missing from final part."
+            });
+        }
+
+        // ==========================================
+        // SUCCESS
+        // ==========================================
+
         return res.json({
             success: true,
-            model: GEMINI_MODEL,
+
+            provider: providerUsed,
+
+            model:
+                providerUsed === "gemini"
+                    ? GEMINI_MODEL
+                    : OPENROUTER_MODEL,
+
             data: result
         });
 
@@ -523,6 +907,7 @@ app.get("/api/ai/styles", (req, res) => {
 
     res.json({
         success: true,
+
         styles: [
             {
                 id: "personal_story",
@@ -577,7 +962,8 @@ app.get("/api/threads/status", (req, res) => {
     res.json({
         success: true,
         status: "not_connected",
-        message: "Threads API will be connected in the next stage."
+        message:
+            "Threads API will be connected in the next stage."
     });
 });
 
@@ -590,7 +976,8 @@ app.get("/api/products", (req, res) => {
     res.json({
         success: true,
         products: [],
-        message: "Shopee affiliate product engine will be connected in the next stage."
+        message:
+            "Shopee affiliate product engine will be connected in the next stage."
     });
 });
 
@@ -603,11 +990,34 @@ app.listen(PORT, () => {
     console.log("=================================");
     console.log("       STORYAFF AI BACKEND");
     console.log("=================================");
-    console.log("Server running on port " + PORT);
-    console.log("Gemini model: " + GEMINI_MODEL);
+
     console.log(
-        "Gemini API key: " +
-        (GEMINI_API_KEY ? "CONFIGURED" : "NOT CONFIGURED")
+        "Server running on port " + PORT
     );
 
+    console.log(
+        "Gemini model: " + GEMINI_MODEL
+    );
+
+    console.log(
+        "OpenRouter model: " + OPENROUTER_MODEL
+    );
+
+    console.log(
+        "Gemini API key: " +
+        (
+            GEMINI_API_KEY
+                ? "CONFIGURED"
+                : "NOT CONFIGURED"
+        )
+    );
+
+    console.log(
+        "OpenRouter API key: " +
+        (
+            OPENROUTER_API_KEY
+                ? "CONFIGURED"
+                : "NOT CONFIGURED"
+        )
+    );
 });
