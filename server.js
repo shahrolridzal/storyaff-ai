@@ -11,7 +11,7 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 
 // ==========================================
 // HOME
@@ -21,7 +21,7 @@ app.get("/", (req, res) => {
     res.json({
         success: true,
         app: "StoryAff AI",
-        version: "1.0.0",
+        version: "1.1.0",
         status: "online",
         ai: GEMINI_API_KEY ? "connected" : "not_configured"
     });
@@ -106,7 +106,7 @@ app.get("/api/ai/test", async (req, res) => {
 });
 
 // ==========================================
-// AI STORY GENERATOR
+// AI THREADS STORY GENERATOR
 // ==========================================
 
 app.post("/api/ai/generate", async (req, res) => {
@@ -134,51 +134,219 @@ app.post("/api/ai/generate", async (req, res) => {
             });
         }
 
+        // ==========================================
+        // STORY PROMPT
+        // ==========================================
+
         const prompt = `
-You are StoryAff AI, an affiliate content writer for Malaysian audiences.
+You are StoryAff AI.
 
-Create a natural Threads-style affiliate post about this product.
+Your job is to create a natural, engaging Malaysian Malay storytelling thread for an affiliate product.
 
-PRODUCT:
+PRODUCT NAME:
 ${product_name}
 
-DESCRIPTION:
+PRODUCT DESCRIPTION:
 ${product_description || "No additional description provided."}
 
 AFFILIATE URL:
 ${affiliate_url || ""}
 
-STYLE:
+STORY STYLE:
 ${style}
 
-IMPORTANT RULES:
+==========================================
+STORY STRUCTURE
+==========================================
 
-1. Write in casual Malaysian Malay.
-2. Make it sound like a real person sharing something useful.
-3. Do NOT invent product specifications.
-4. Do NOT invent prices.
-5. Do NOT invent personal experiences.
-6. Do NOT create fake testimonials.
-7. Do NOT make unsupported claims.
-8. Do not sound like a hard-selling advertisement.
-9. The affiliate URL must remain exactly as provided.
-10. Include a simple affiliate disclosure.
-11. Maximum 5 hashtags.
-12. Make the opening hook interesting.
-13. The post should be suitable for Threads.
-14. Avoid excessive emojis.
-15. Keep the story concise and readable.
+Create a storytelling thread with:
 
-Return ONLY valid JSON using exactly this structure:
+MINIMUM: 6 parts
+MAXIMUM: 10 parts
+
+You decide the number of parts based on how much storytelling is actually needed.
+
+Do NOT automatically make every story 10 parts.
+
+Use 6 parts when the story can be told effectively in 6 parts.
+
+Use more parts when additional storytelling, curiosity, explanation or context genuinely improves the story.
+
+Every part must move the story forward.
+
+==========================================
+PART STRUCTURE
+==========================================
+
+PART 1
+Strong hook.
+
+The first part must make people curious enough to continue reading.
+
+PART 2
+Introduce the situation, problem, observation or context.
+
+PART 3+
+Develop the story naturally.
+
+You may use:
+- curiosity
+- problem
+- discovery
+- realization
+- comparison
+- useful information
+- unexpected observation
+- travel situation
+- funny moment
+
+The exact structure depends on the product and selected style.
+
+FINAL PART
+The final part must:
+- conclude the story
+- provide a natural CTA
+- contain the affiliate link
+- contain the affiliate disclosure
+
+==========================================
+AFFILIATE LINK RULE
+==========================================
+
+CRITICAL:
+
+The affiliate URL:
+
+${affiliate_url || ""}
+
+MUST NOT appear anywhere in Parts 1 through 9.
+
+The affiliate URL may ONLY appear in the FINAL PART.
+
+If the story contains 6 parts, the link appears in Part 6.
+
+If the story contains 7 parts, the link appears in Part 7.
+
+If the story contains 8 parts, the link appears in Part 8.
+
+If the story contains 9 parts, the link appears in Part 9.
+
+If the story contains 10 parts, the link appears in Part 10.
+
+The URL must remain EXACTLY as provided.
+
+Do not shorten it.
+Do not modify it.
+Do not create another URL.
+
+==========================================
+WRITING STYLE
+==========================================
+
+Write in casual Malaysian Malay.
+
+The writing should feel like a real person posting on Threads.
+
+Avoid corporate language.
+
+Avoid sounding like an advertisement.
+
+Do not make every sentence perfect or overly formal.
+
+Use natural Malaysian expressions where appropriate.
+
+Do not overuse emojis.
+
+Do not use fake personal experiences.
+
+Do not claim the writer personally used the product unless that information is explicitly provided.
+
+Do not create fake testimonials.
+
+Do not invent:
+- prices
+- discounts
+- specifications
+- awards
+- reviews
+- ratings
+- results
+- guarantees
+- product features
+
+Only use information provided in the product description.
+
+==========================================
+THREADS READABILITY
+==========================================
+
+Each part should be relatively short and easy to read.
+
+Use line breaks where appropriate.
+
+Avoid giant paragraphs.
+
+The reader should naturally want to continue to the next part.
+
+Do not start every part with:
+"Part 1"
+"Part 2"
+etc.
+
+The API will identify the parts separately.
+
+==========================================
+HASHTAGS
+==========================================
+
+Generate maximum 5 relevant hashtags.
+
+Do not use irrelevant trending hashtags.
+
+==========================================
+AFFILIATE DISCLOSURE
+==========================================
+
+The final part must clearly disclose that the link is an affiliate link.
+
+Use natural Malaysian wording such as:
+
+"(Pautan afiliat)"
+
+==========================================
+OUTPUT
+==========================================
+
+Return ONLY valid JSON.
+
+Use exactly this structure:
 
 {
-  "hook": "",
-  "story": "",
-  "cta": "",
+  "style": "",
+  "part_count": 0,
+  "parts": [
+    {
+      "part": 1,
+      "text": ""
+    }
+  ],
+  "final_cta": "",
   "affiliate_disclosure": "",
   "hashtags": [],
-  "full_post": ""
+  "full_thread": ""
 }
+
+IMPORTANT:
+
+part_count MUST be between 6 and 10.
+
+The number of objects inside "parts" MUST equal part_count.
+
+The affiliate URL MUST appear ONLY in the final part.
+
+The affiliate URL MUST also appear in "full_thread" only where the final part appears.
+
+Do not put the affiliate URL in any other field.
 `;
 
         const url =
@@ -193,10 +361,25 @@ Return ONLY valid JSON using exactly this structure:
                 systemInstruction: {
                     parts: [
                         {
-                            text: "You are a careful Malaysian affiliate content writer. Never fabricate facts."
+                            text: `
+You are StoryAff AI.
+
+You are a careful Malaysian affiliate storytelling writer.
+
+Never fabricate product facts.
+
+Never fabricate personal experiences.
+
+Never fabricate testimonials.
+
+Always obey the 6-10 part storytelling structure.
+
+The affiliate URL must only appear in the final part.
+`
                         }
                     ]
                 },
+
                 contents: [
                     {
                         parts: [
@@ -206,8 +389,9 @@ Return ONLY valid JSON using exactly this structure:
                         ]
                     }
                 ],
+
                 generationConfig: {
-                    temperature: 0.8,
+                    temperature: 0.85,
                     responseMimeType: "application/json"
                 }
             })
@@ -231,12 +415,89 @@ Return ONLY valid JSON using exactly this structure:
         try {
             result = JSON.parse(aiText);
         } catch (parseError) {
+
             return res.status(500).json({
                 success: false,
                 error: "Gemini returned invalid JSON.",
                 raw_response: aiText
             });
         }
+
+        // ==========================================
+        // BASIC VALIDATION
+        // ==========================================
+
+        if (
+            !result.parts ||
+            !Array.isArray(result.parts)
+        ) {
+            return res.status(500).json({
+                success: false,
+                error: "AI response does not contain valid parts."
+            });
+        }
+
+        const partCount = result.parts.length;
+
+        if (partCount < 6 || partCount > 10) {
+            return res.status(500).json({
+                success: false,
+                error: "AI generated an invalid number of parts.",
+                part_count: partCount
+            });
+        }
+
+        // ==========================================
+        // AFFILIATE LINK SECURITY CHECK
+        // ==========================================
+
+        if (affiliate_url) {
+
+            let earlyPartContainsLink = false;
+
+            for (let i = 0; i < result.parts.length - 1; i++) {
+
+                if (
+                    result.parts[i].text &&
+                    result.parts[i].text.includes(affiliate_url)
+                ) {
+                    earlyPartContainsLink = true;
+                }
+            }
+
+            if (earlyPartContainsLink) {
+
+                return res.status(500).json({
+                    success: false,
+                    error: "Security check failed: affiliate URL appeared before the final part."
+                });
+            }
+
+            const finalPart =
+                result.parts[result.parts.length - 1];
+
+            if (
+                !finalPart.text ||
+                !finalPart.text.includes(affiliate_url)
+            ) {
+
+                return res.status(500).json({
+                    success: false,
+                    error: "Security check failed: affiliate URL is missing from the final part."
+                });
+            }
+        }
+
+        // ==========================================
+        // BUILD FULL THREAD
+        // ==========================================
+
+        const fullThread = result.parts
+            .map((part) => part.text)
+            .join("\n\n");
+
+        result.full_thread = fullThread;
+        result.part_count = partCount;
 
         return res.json({
             success: true,
