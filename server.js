@@ -25,7 +25,7 @@ app.get("/", (req, res) => {
     res.json({
         success: true,
         app: "StoryAff AI",
-        version: "1.2.0",
+        version: "1.3.0",
         status: "online",
         ai: {
             gemini: GEMINI_API_KEY ? "configured" : "not_configured",
@@ -47,7 +47,7 @@ app.get("/health", (req, res) => {
 });
 
 // ==========================================
-// HELPER - WAIT
+// WAIT
 // ==========================================
 
 function sleep(ms) {
@@ -55,7 +55,7 @@ function sleep(ms) {
 }
 
 // ==========================================
-// GEMINI CALL
+// GEMINI
 // ==========================================
 
 async function callGemini(prompt) {
@@ -77,29 +77,31 @@ async function callGemini(prompt) {
                 parts: [
                     {
                         text: `
-You are StoryAff AI.
+You are StoryAff AI, an expert Malaysian Threads storyteller.
 
-You are a careful Malaysian affiliate storytelling writer.
+Your job is NOT to write advertisements.
 
-Never fabricate product facts.
+Your job is to create stories that make people stop scrolling,
+continue reading, become curious, and only then discover the product.
 
-Never fabricate personal experiences.
+IMPORTANT RULES:
 
-Never fabricate testimonials.
+1. Never fabricate product facts.
+2. Never fabricate personal experiences.
+3. Never fabricate testimonials.
+4. Never claim something is popular, viral, bestselling,
+   widely used, or chosen by many people unless that information
+   is explicitly provided.
+5. Never invent prices, discounts, ratings, reviews, awards,
+   specifications, results or guarantees.
+6. Only use facts explicitly provided in PRODUCT DESCRIPTION.
+7. Never create or include URLs.
+8. The backend will insert the affiliate URL separately.
+9. Do not mention the actual affiliate URL.
+10. Return ONLY valid JSON.
 
-Always obey the 6-10 part storytelling structure.
-
-IMPORTANT:
-The backend will handle the affiliate URL separately.
-
-DO NOT create, invent, modify, or include any URL.
-
-DO NOT include any affiliate link.
-
-The final part should contain a natural CTA and affiliate disclosure wording,
-but NOT the actual URL.
-
-Return ONLY valid JSON.
+The story should feel like a Malaysian person sharing something
+interesting on Threads, NOT like a salesperson.
 `
                     }
                 ]
@@ -116,7 +118,7 @@ Return ONLY valid JSON.
             ],
 
             generationConfig: {
-                temperature: 0.85,
+                temperature: 0.9,
                 responseMimeType: "application/json"
             }
         })
@@ -142,7 +144,10 @@ Return ONLY valid JSON.
         data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     if (!aiText) {
-        const error = new Error("Gemini returned an empty response.");
+
+        const error =
+            new Error("Gemini returned an empty response.");
+
         error.status = 502;
         error.provider = "gemini";
 
@@ -153,7 +158,7 @@ Return ONLY valid JSON.
 }
 
 // ==========================================
-// GEMINI WITH RETRY
+// GEMINI RETRY
 // ==========================================
 
 async function callGeminiWithRetry(prompt) {
@@ -170,11 +175,7 @@ async function callGeminiWithRetry(prompt) {
                 `Gemini attempt ${attempt}/${maxAttempts}`
             );
 
-            const result = await callGemini(prompt);
-
-            console.log("Gemini request successful.");
-
-            return result;
+            return await callGemini(prompt);
 
         } catch (error) {
 
@@ -198,8 +199,6 @@ async function callGeminiWithRetry(prompt) {
                 break;
             }
 
-            console.log("Retrying Gemini in 1500ms...");
-
             await sleep(1500);
         }
     }
@@ -208,16 +207,15 @@ async function callGeminiWithRetry(prompt) {
 }
 
 // ==========================================
-// OPENROUTER CALL
+// OPENROUTER
 // ==========================================
 
 async function callOpenRouter(prompt) {
 
     if (!OPENROUTER_API_KEY) {
 
-        const error = new Error(
-            "OPENROUTER_API_KEY is not configured."
-        );
+        const error =
+            new Error("OPENROUTER_API_KEY is not configured.");
 
         error.status = 500;
         error.provider = "openrouter";
@@ -247,9 +245,12 @@ async function callOpenRouter(prompt) {
                     {
                         role: "system",
                         content: `
-You are StoryAff AI.
+You are StoryAff AI, an expert Malaysian Threads storyteller.
 
-You are a careful Malaysian affiliate storytelling writer.
+Your job is NOT to write advertisements.
+
+Your job is to create stories that make people stop scrolling,
+continue reading, become curious, and only then discover the product.
 
 Never fabricate product facts.
 
@@ -257,17 +258,17 @@ Never fabricate personal experiences.
 
 Never fabricate testimonials.
 
-Always obey the 6-10 part storytelling structure.
+Never claim something is popular, viral, bestselling,
+widely used, or chosen by many people unless explicitly provided.
 
-IMPORTANT:
-The backend will handle the affiliate URL separately.
+Never invent prices, discounts, ratings, reviews, awards,
+specifications, results or guarantees.
 
-DO NOT create, invent, modify, or include any URL.
+Only use facts explicitly provided in PRODUCT DESCRIPTION.
 
-DO NOT include any affiliate link.
+Never create or include URLs.
 
-The final part should contain a natural CTA and affiliate disclosure wording,
-but NOT the actual URL.
+The backend will insert the affiliate URL separately.
 
 Return ONLY valid JSON.
 `
@@ -279,7 +280,7 @@ Return ONLY valid JSON.
                     }
                 ],
 
-                temperature: 0.85
+                temperature: 0.9
             })
         }
     );
@@ -305,9 +306,8 @@ Return ONLY valid JSON.
 
     if (!aiText) {
 
-        const error = new Error(
-            "OpenRouter returned an empty response."
-        );
+        const error =
+            new Error("OpenRouter returned an empty response.");
 
         error.status = 502;
         error.provider = "openrouter";
@@ -328,7 +328,8 @@ app.get("/api/ai/test", async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            error: "GEMINI_API_KEY is not configured in Render."
+            error:
+                "GEMINI_API_KEY is not configured in Render."
         });
     }
 
@@ -374,7 +375,8 @@ app.get("/api/ai/test", async (req, res) => {
 
         return res.json({
             success: true,
-            message: "Gemini AI is connected successfully.",
+            message:
+                "Gemini AI is connected successfully.",
             model: GEMINI_MODEL,
             response: aiText
         });
@@ -383,14 +385,15 @@ app.get("/api/ai/test", async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            error: "Failed to connect to Gemini.",
+            error:
+                "Failed to connect to Gemini.",
             details: error.message
         });
     }
 });
 
 // ==========================================
-// AI THREADS STORY GENERATOR
+// STORY GENERATOR
 // ==========================================
 
 app.post("/api/ai/generate", async (req, res) => {
@@ -400,7 +403,7 @@ app.post("/api/ai/generate", async (req, res) => {
         return res.status(500).json({
             success: false,
             error:
-                "No AI provider is configured. Please configure Gemini or OpenRouter."
+                "No AI provider is configured."
         });
     }
 
@@ -414,14 +417,15 @@ app.post("/api/ai/generate", async (req, res) => {
         } = req.body;
 
         // ==========================================
-        // VALIDATION
+        // INPUT VALIDATION
         // ==========================================
 
         if (!product_name) {
 
             return res.status(400).json({
                 success: false,
-                error: "product_name is required."
+                error:
+                    "product_name is required."
             });
         }
 
@@ -429,7 +433,8 @@ app.post("/api/ai/generate", async (req, res) => {
 
             return res.status(400).json({
                 success: false,
-                error: "affiliate_url is required."
+                error:
+                    "affiliate_url is required."
             });
         }
 
@@ -438,9 +443,7 @@ app.post("/api/ai/generate", async (req, res) => {
         // ==========================================
 
         const prompt = `
-You are StoryAff AI.
-
-Create a natural, engaging Malaysian Malay storytelling thread for an affiliate product.
+You are creating a Malaysian Threads storytelling post.
 
 PRODUCT NAME:
 ${product_name}
@@ -451,133 +454,215 @@ ${product_description || "No additional description provided."}
 STORY STYLE:
 ${style}
 
-IMPORTANT:
-The affiliate URL is handled by the backend.
-
-DO NOT include any URL in your response.
-
 ==========================================
-STORY STRUCTURE
+MAIN OBJECTIVE
 ==========================================
 
-Create a storytelling thread with:
+Create a story that feels natural enough that someone would
+actually stop and read it on Threads.
 
-MINIMUM: 6 parts
-MAXIMUM: 10 parts
+This is NOT a product advertisement.
 
-You decide the number of parts based on how much storytelling is actually needed.
-
-Do NOT automatically make every story 10 parts.
-
-Use 6 parts when the story can be told effectively in 6 parts.
-
-Use more parts when additional storytelling, curiosity, explanation or context genuinely improves the story.
-
-Every part must move the story forward.
+The product should feel like the answer to a story,
+not the reason the story exists.
 
 ==========================================
-PART STRUCTURE
+STORY LENGTH
 ==========================================
 
-PART 1
+Minimum: 6 parts
+Maximum: 10 parts
 
-Strong hook.
+You decide the correct number.
 
-The first part must make people curious enough to continue reading.
+Do not force 10 parts.
 
-Do not reveal the product immediately unless necessary.
+Use 6 if the story is complete in 6.
 
-PART 2
+Use 7-10 only when additional storytelling genuinely helps.
 
-Introduce the situation, problem, observation or context.
+==========================================
+STORY ARC
+==========================================
 
-PART 3+
+Use this general structure:
 
-Develop the story naturally.
+PART 1 — HOOK
 
-You may use:
+Start with something that creates curiosity.
 
-- curiosity
-- problem
-- discovery
-- realization
-- comparison
-- useful information
+Good examples of hook types:
+
+- annoying travel problem
 - unexpected observation
-- travel situation
-- funny moment
+- relatable frustration
+- surprising realization
+- "baru sedar" moment
+- question that makes people think
+- small problem that becomes bigger
 
-The exact structure depends on the product and selected style.
+Do NOT start like an advertisement.
+
+Do NOT mention the product immediately unless it is genuinely
+necessary for the hook.
+
+------------------------------------------
+
+PART 2 — CONTEXT
+
+Explain what happened.
+
+Make the situation relatable.
+
+------------------------------------------
+
+PART 3 — PROBLEM
+
+Show why the situation is annoying, inconvenient,
+interesting or worth solving.
+
+------------------------------------------
+
+PART 4 — CURIOSITY
+
+Build anticipation.
+
+Make the reader want to know what solution was discovered.
+
+Do not reveal the product too early.
+
+------------------------------------------
+
+PART 5 — DISCOVERY / REVEAL
+
+Introduce the product naturally.
+
+The reveal should feel like:
+
+"Oh, rupanya benda ni yang dia jumpa."
+
+Not:
+
+"BUY THIS PRODUCT NOW."
+
+------------------------------------------
+
+PART 6+
+
+Explain only the relevant product facts provided
+in PRODUCT DESCRIPTION.
+
+Connect those facts to the original problem.
+
+Do not invent benefits beyond the provided facts.
+
+------------------------------------------
 
 FINAL PART
 
-The final part must:
+Close the story naturally.
 
-- conclude the story
-- provide a natural CTA
-- contain a natural affiliate disclosure
+Use a soft CTA.
 
-DO NOT include the actual affiliate URL.
+Include the affiliate disclosure wording:
 
-The backend will insert the exact affiliate URL after the AI response.
+(Pautan afiliat)
 
-==========================================
-WRITING STYLE
-==========================================
+DO NOT include the affiliate URL.
 
-Write in casual Malaysian Malay.
-
-The writing should feel like a real person posting on Threads.
-
-Avoid corporate language.
-
-Avoid sounding like an advertisement.
-
-Do not make every sentence perfect or overly formal.
-
-Use natural Malaysian expressions where appropriate.
-
-Do not overuse emojis.
-
-Do not use fake personal experiences.
-
-Do not claim the writer personally used the product unless that information is explicitly provided.
-
-Do not create fake testimonials.
-
-Do not invent:
-
-- prices
-- discounts
-- specifications
-- awards
-- reviews
-- ratings
-- results
-- guarantees
-- product features
-
-Only use information provided in the product description.
+The backend will insert the exact URL.
 
 ==========================================
-THREADS READABILITY
+IMPORTANT WRITING RULE
 ==========================================
 
-Each part should be relatively short and easy to read.
+Never make unsupported claims such as:
 
-Use line breaks where appropriate.
+"ramai orang guna"
 
-Avoid giant paragraphs.
+"viral"
 
-The reader should naturally want to continue to the next part.
+"best seller"
 
-Do not start every part with:
+"everyone is buying"
 
-"Part 1"
-"Part 2"
-etc.
+"pilihan ramai"
 
-The API will identify the parts separately.
+"benda ni tengah trending"
+
+"confirm berbaloi"
+
+unless those facts are explicitly present in PRODUCT DESCRIPTION.
+
+Instead, describe only what is actually known.
+
+==========================================
+NATURAL MALAYSIAN STYLE
+==========================================
+
+Use casual Malaysian Malay.
+
+Natural words are allowed:
+
+- korang
+- memang
+- sebenarnya
+- rupanya
+- leceh
+- benda ni
+- nak
+- tak
+- je
+- bila
+- sebab tu
+
+But do not overuse slang.
+
+Avoid corporate copywriting.
+
+Avoid excessive emojis.
+
+Avoid fake enthusiasm.
+
+Avoid repetitive sentence structures.
+
+Vary sentence length.
+
+Make the story feel written by a real person.
+
+==========================================
+NO FAKE EXPERIENCE
+==========================================
+
+Do not say:
+
+"Aku dah guna..."
+
+"Semalam aku test..."
+
+"Aku memang suka..."
+
+unless that experience was explicitly provided.
+
+The writer is NOT allowed to pretend they personally used the product.
+
+==========================================
+NO URL
+==========================================
+
+DO NOT create any URL.
+
+DO NOT include:
+
+https://
+
+www.
+
+Shopee links
+
+affiliate links
+
+or any other URL.
 
 ==========================================
 HASHTAGS
@@ -585,17 +670,7 @@ HASHTAGS
 
 Generate maximum 5 relevant hashtags.
 
-Do not use irrelevant trending hashtags.
-
-==========================================
-AFFILIATE DISCLOSURE
-==========================================
-
-The final part must clearly disclose that the link is an affiliate link.
-
-Use natural Malaysian wording such as:
-
-"(Pautan afiliat)"
+Avoid generic spam hashtags.
 
 ==========================================
 OUTPUT
@@ -603,7 +678,7 @@ OUTPUT
 
 Return ONLY valid JSON.
 
-Use exactly this structure:
+Use exactly:
 
 {
   "style": "",
@@ -619,19 +694,11 @@ Use exactly this structure:
   "hashtags": []
 }
 
-IMPORTANT:
+Do not include full_thread.
 
-part_count MUST be between 6 and 10.
+The backend will create full_thread.
 
-The number of objects inside "parts" MUST equal part_count.
-
-DO NOT include any URL anywhere in the JSON.
-
-DO NOT create any URL.
-
-DO NOT modify any URL.
-
-DO NOT mention the affiliate URL.
+Do not include the affiliate URL.
 `;
 
         // ==========================================
@@ -641,9 +708,7 @@ DO NOT mention the affiliate URL.
         let aiText = "";
         let providerUsed = "";
 
-        // ------------------------------------------
-        // TRY GEMINI FIRST
-        // ------------------------------------------
+        // Gemini first
 
         if (GEMINI_API_KEY) {
 
@@ -657,19 +722,16 @@ DO NOT mention the affiliate URL.
             } catch (geminiError) {
 
                 console.log(
-                    "Gemini failed. Trying OpenRouter fallback..."
+                    "Gemini failed. Falling back to OpenRouter."
                 );
 
                 console.log(
-                    "Gemini error:",
                     geminiError.message
                 );
             }
         }
 
-        // ------------------------------------------
-        // FALLBACK TO OPENROUTER
-        // ------------------------------------------
+        // OpenRouter fallback
 
         if (!aiText && OPENROUTER_API_KEY) {
 
@@ -682,17 +744,12 @@ DO NOT mention the affiliate URL.
 
             } catch (openRouterError) {
 
-                console.log(
-                    "OpenRouter failed:",
-                    openRouterError.message
-                );
-
                 return res.status(502).json({
                     success: false,
-                    error: "Both AI providers failed.",
-                    gemini: "failed",
-                    openrouter: "failed",
-                    details: openRouterError.message
+                    error:
+                        "Both AI providers failed.",
+                    details:
+                        openRouterError.message
                 });
             }
         }
@@ -702,32 +759,36 @@ DO NOT mention the affiliate URL.
             return res.status(502).json({
                 success: false,
                 error:
-                    "AI generation failed. No fallback provider available."
+                    "AI generation failed."
             });
         }
 
         // ==========================================
-        // PARSE AI JSON
+        // PARSE JSON
         // ==========================================
 
         let result;
 
         try {
 
-            result = JSON.parse(aiText);
+            result =
+                JSON.parse(aiText);
 
         } catch (parseError) {
 
             return res.status(500).json({
                 success: false,
-                error: "AI returned invalid JSON.",
-                provider: providerUsed,
-                raw_response: aiText
+                error:
+                    "AI returned invalid JSON.",
+                provider:
+                    providerUsed,
+                raw_response:
+                    aiText
             });
         }
 
         // ==========================================
-        // BASIC VALIDATION
+        // PART VALIDATION
         // ==========================================
 
         if (
@@ -738,32 +799,33 @@ DO NOT mention the affiliate URL.
             return res.status(500).json({
                 success: false,
                 error:
-                    "AI response does not contain valid parts.",
-                provider: providerUsed
+                    "AI response does not contain valid parts."
             });
         }
 
-        const partCount = result.parts.length;
+        const partCount =
+            result.parts.length;
 
-        if (partCount < 6 || partCount > 10) {
+        if (
+            partCount < 6 ||
+            partCount > 10
+        ) {
 
             return res.status(500).json({
                 success: false,
                 error:
                     "AI generated an invalid number of parts.",
-                part_count: partCount,
-                provider: providerUsed
+                part_count:
+                    partCount
             });
         }
 
         // ==========================================
-        // CHECK THAT AI DID NOT GENERATE URL
+        // URL SECURITY
         // ==========================================
 
         const urlPattern =
             /(https?:\/\/|www\.|s\.shopee\.com|shopee\.com)/i;
-
-        let aiGeneratedUrl = false;
 
         for (const part of result.parts) {
 
@@ -771,19 +833,13 @@ DO NOT mention the affiliate URL.
                 part.text &&
                 urlPattern.test(part.text)
             ) {
-                aiGeneratedUrl = true;
-                break;
+
+                return res.status(500).json({
+                    success: false,
+                    error:
+                        "Security check failed: AI generated a URL."
+                });
             }
-        }
-
-        if (aiGeneratedUrl) {
-
-            return res.status(500).json({
-                success: false,
-                error:
-                    "Security check failed: AI generated a URL. No affiliate link was inserted.",
-                provider: providerUsed
-            });
         }
 
         // ==========================================
@@ -796,15 +852,13 @@ DO NOT mention the affiliate URL.
         let finalPart =
             result.parts[finalPartIndex].text || "";
 
-        // Remove accidental duplicate disclosure
         finalPart =
             finalPart
-                .replace(/\(Pautan afiliat\)/gi, "")
+                .replace(
+                    /\(Pautan afiliat\)/gi,
+                    ""
+                )
                 .trim();
-
-        // ==========================================
-        // BACKEND INSERTS EXACT AFFILIATE URL
-        // ==========================================
 
         finalPart =
             `${finalPart}\n\n👉 ${affiliate_url}\n(Pautan afiliat)`;
@@ -813,13 +867,13 @@ DO NOT mention the affiliate URL.
             finalPart;
 
         // ==========================================
-        // FINAL CTA
+        // CTA
         // ==========================================
 
         if (!result.final_cta) {
 
             result.final_cta =
-                "Kalau nak tengok detail produk, boleh check link di bawah.";
+                "Kalau nak tengok detail, boleh check link di bawah.";
         }
 
         if (!result.affiliate_disclosure) {
@@ -829,26 +883,46 @@ DO NOT mention the affiliate URL.
         }
 
         // ==========================================
-        // BUILD FULL THREAD
+        // HASHTAGS
         // ==========================================
 
-        const fullThread =
+        if (
+            !Array.isArray(result.hashtags)
+        ) {
+
+            result.hashtags = [];
+        }
+
+        result.hashtags =
+            result.hashtags.slice(0, 5);
+
+        // ==========================================
+        // FULL THREAD
+        // ==========================================
+
+        result.full_thread =
             result.parts
-                .map((part) => part.text)
+                .map(part => part.text)
                 .join("\n\n");
 
-        result.full_thread = fullThread;
-        result.part_count = partCount;
+        result.part_count =
+            partCount;
 
         // ==========================================
-        // FINAL SECURITY CHECK
+        // FINAL URL SECURITY
         // ==========================================
 
-        for (let i = 0; i < result.parts.length - 1; i++) {
+        for (
+            let i = 0;
+            i < result.parts.length - 1;
+            i++
+        ) {
 
             if (
                 result.parts[i].text &&
-                result.parts[i].text.includes(affiliate_url)
+                result.parts[i].text.includes(
+                    affiliate_url
+                )
             ) {
 
                 return res.status(500).json({
@@ -868,7 +942,7 @@ DO NOT mention the affiliate URL.
             return res.status(500).json({
                 success: false,
                 error:
-                    "Security check failed: exact affiliate URL missing from final part."
+                    "Security check failed: exact affiliate URL missing."
             });
         }
 
@@ -879,28 +953,32 @@ DO NOT mention the affiliate URL.
         return res.json({
             success: true,
 
-            provider: providerUsed,
+            provider:
+                providerUsed,
 
             model:
                 providerUsed === "gemini"
                     ? GEMINI_MODEL
                     : OPENROUTER_MODEL,
 
-            data: result
+            data:
+                result
         });
 
     } catch (error) {
 
         return res.status(500).json({
             success: false,
-            error: "AI generation failed.",
-            details: error.message
+            error:
+                "AI generation failed.",
+            details:
+                error.message
         });
     }
 });
 
 // ==========================================
-// AVAILABLE STORY STYLES
+// STORY STYLES
 // ==========================================
 
 app.get("/api/ai/styles", (req, res) => {
