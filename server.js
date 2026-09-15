@@ -16,6 +16,12 @@ const OPENROUTER_MODEL = "openrouter/free";
 
 
 // ============================================================
+// STORYAFF AI
+// VERSION 1.9.4.1
+// ============================================================
+
+
+// ============================================================
 // BASIC HELPERS
 // ============================================================
 
@@ -32,25 +38,24 @@ function containsBannedIndonesian(text) {
     if (!text) return false;
 
     const bannedWords = [
-        "bisa",
-        "sangatlah",
-        "kamu",
-        "anda",
         "nggak",
         "enggak",
-        "gak",
         "dong",
         "banget",
-        "cuma perlu",
-        "langsung saja",
-        "terbaik",
-        "mantap sekali",
-        "wajib banget"
+        "kamu",
+        "anda"
     ];
 
     const lower = String(text).toLowerCase();
 
-    return bannedWords.some(word => lower.includes(word));
+    return bannedWords.some(word => {
+        const regex = new RegExp(
+            `\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+            "i"
+        );
+
+        return regex.test(lower);
+    });
 }
 
 
@@ -73,9 +78,7 @@ function containsFakeExperience(text) {
         /\baku pakai\b/i,
         /\baku dah pakai\b/i,
         /\baku sudah pakai\b/i,
-        /\baku test\b/i,
-        /\baku cuba\b/i,
-        /\baku guna\b/i
+        /\baku test\b/i
     ];
 
     return patterns.some(pattern => pattern.test(text));
@@ -83,36 +86,43 @@ function containsFakeExperience(text) {
 
 
 function extractJson(text) {
+
     if (!text) {
         throw new Error("AI returned empty response.");
     }
 
     let cleaned = String(text).trim();
 
-    // Remove markdown fences
     cleaned = cleaned.replace(/^```json\s*/i, "");
     cleaned = cleaned.replace(/^```\s*/i, "");
     cleaned = cleaned.replace(/\s*```$/i, "");
 
-    // Find first JSON object
     const firstBrace = cleaned.indexOf("{");
     const lastBrace = cleaned.lastIndexOf("}");
 
     if (firstBrace !== -1 && lastBrace !== -1) {
-        cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+        cleaned = cleaned.substring(
+            firstBrace,
+            lastBrace + 1
+        );
     }
 
     try {
         return JSON.parse(cleaned);
     } catch (error) {
-        throw new Error("AI returned invalid JSON.");
+        throw new Error(
+            "AI returned invalid JSON."
+        );
     }
 }
 
 
 function normalizeParts(parts) {
+
     if (!Array.isArray(parts)) {
-        throw new Error("Story parts must be an array.");
+        throw new Error(
+            "Story parts must be an array."
+        );
     }
 
     return parts
@@ -122,7 +132,10 @@ function normalizeParts(parts) {
 
 
 function splitProductFacts(description) {
-    if (!description) return [];
+
+    if (!description) {
+        return [];
+    }
 
     return String(description)
         .split(/(?<=[.!?])\s+|\n+/)
@@ -132,7 +145,12 @@ function splitProductFacts(description) {
 }
 
 
-function replacePlaceholders(story, productName, facts) {
+function replacePlaceholders(
+    story,
+    productName,
+    facts
+) {
+
     let output = story;
 
     output = output.replace(
@@ -141,13 +159,18 @@ function replacePlaceholders(story, productName, facts) {
     );
 
     facts.forEach((fact, index) => {
-        const placeholder = `{{FACT_${index + 1}}}`;
+
+        const placeholder =
+            `{{FACT_${index + 1}}}`;
+
+        const escaped =
+            placeholder.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+            );
 
         output = output.replace(
-            new RegExp(
-                placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-                "g"
-            ),
+            new RegExp(escaped, "g"),
             fact
         );
     });
@@ -157,16 +180,16 @@ function replacePlaceholders(story, productName, facts) {
 
 
 function cleanStoryParts(parts) {
+
     return parts.map((part, index) => {
+
         let clean = String(part).trim();
 
-        // Remove AI numbering if it added it
         clean = clean.replace(
             /^\s*(?:part|bahagian)\s*\d+\s*[:.)-]?\s*/i,
             ""
         );
 
-        // Also remove accidental numbered format
         clean = clean.replace(
             /^\s*\d+\s*[:.)-]\s*/,
             ""
@@ -178,79 +201,128 @@ function cleanStoryParts(parts) {
 
 
 // ============================================================
-// SOFIAN PERSONA
+// SOFIAN IDENTITY
 // ============================================================
 
 const SOFIAN_IDENTITY = `
-Sofian The Travelling Cat is literally a travelling cat.
+
+SOFIAN THE TRAVELLING CAT
+
+Sofian is literally a travelling cat.
 
 He is NOT a human traveller.
 
-He is a cat with human-like thoughts, opinions and storytelling ability.
+He is a cat with human-like intelligence, thoughts,
+opinions, curiosity and storytelling ability.
 
-His cat identity must naturally exist inside his worldview:
-- he notices smells
-- he notices food
-- he notices strange human behaviour
-- he notices cramped spaces
-- he notices bags and luggage
-- he notices comfort
-- he notices whether something feels troublesome
-- he gets curious
-- he can be lazy
-- he can be practical
-- he can be sarcastic
-- he can observe humans from a cat's perspective
+His cat identity must naturally exist in his worldview.
 
-Do NOT repeatedly say "as a cat".
+He notices:
 
-Do NOT make him meow every sentence.
+- smells
+- food
+- strange human behaviour
+- cramped spaces
+- bags
+- luggage
+- comfort
+- noise
+- interesting places
+- human habits
+- things that look troublesome
+- things that might make travel easier
 
-Do NOT turn him into a human influencer called Sofian.
+Sofian can be:
 
-The reader should naturally feel that the narrator is a travelling cat.
+- curious
+- lazy
+- practical
+- sarcastic
+- observant
+- slightly mischievous
+- budget-conscious
+
+DO NOT repeatedly say:
+"as a cat"
+
+DO NOT make him meow every sentence.
+
+DO NOT turn him into a human influencer called Sofian.
+
+DO NOT make his cat identity merely visual.
+
+The reader should naturally understand that the narrator is a travelling cat.
 `;
 
 
-const SOFIAN_VOICE = `
-VOICE:
+// ============================================================
+// SOFIAN VOICE
+// ============================================================
 
-Natural Malaysian Malay.
+const SOFIAN_VOICE = `
+
+SOFIAN VOICE
+
+Write in natural Malaysian Malay.
 
 Casual.
 
 Conversational.
 
-Slight Malaysian Manglish is okay.
+Slight Malaysian Manglish is acceptable.
 
-Very light Northern Malaysian flavour.
+Light Northern Malaysian flavour is acceptable.
 
-Possible words:
-hang, pi, mai, sat, awat, dak, depa, noh, kot, haa, pulak, ja.
+Possible words include:
 
-But DO NOT force these words.
+hang
+pi
+mai
+sat
+awat
+dak
+depa
+noh
+kot
+haa
+pulak
+ja
 
-The writing must sound like a Malaysian person thinking out loud,
-not like advertising copy.
+BUT:
 
-Use short and medium sentences.
+Do not force slang.
 
-Avoid corporate language.
+Do not put Northern words into every sentence.
 
-Avoid motivational language.
+Do not try too hard to sound Northern.
 
-Avoid influencer language.
+The voice should feel like a Malaysian friend talking naturally.
 
-Avoid "content creator" style.
+Not an influencer.
 
-Avoid polished marketing language.
+Not a copywriter.
 
-Avoid fake jokes.
+Not a product reviewer.
+
+Not a corporate social media manager.
+
+Not a motivational speaker.
+
+Not an AI advertisement.
 
 Humour should come from observation.
 
-The personality should come from the way Sofian thinks,
-not from repeatedly inserting slang.
+Personality should come from the way Sofian thinks.
+
+Use short and medium sentences.
+
+Avoid overly polished sentences.
+
+Avoid unnecessary explanations.
+
+Avoid corporate phrases.
+
+Avoid generic marketing phrases.
 
 VOICE BENCHMARK:
 
@@ -264,79 +336,98 @@ VOICE BENCHMARK:
 
 "Beg 7kg. Barang nak bawa 12kg. Matematik pun surrender."
 
-These examples define the naturalness,
-NOT facts that must appear in every story.
+These examples are voice references.
+
+Do not copy them into every story.
 `;
 
 
+// ============================================================
+// GENERAL TRUTH RULES
+// ============================================================
+
 const GENERAL_RULES = `
-IMPORTANT:
+
+TRUTH RULES
 
 Never fabricate facts.
 
 Never fabricate personal experience.
 
-Never claim Sofian bought, used, tested, owned or personally experienced a product.
+Never claim Sofian personally:
 
-Never claim a product was seen, recommended, used or tested by another person unless explicitly supplied as a fact.
+- bought
+- used
+- tested
+- owned
+- tried
+- carried
+- travelled with
+- reviewed
+
+a product unless that experience is explicitly supplied.
 
 Never invent:
-- prices
-- discounts
-- reviews
-- ratings
+
+- price
+- discount
+- review
+- rating
 - popularity
 - battery life
-- specifications
-- dimensions
 - weight
+- dimensions
 - materials
 - durability
+- specifications
 - performance
-- locations
 - customer opinions
-- personal experience
+- locations
+- testimonials
+
+Do not invent claims about other people using the product.
 
 Do not make unsupported comparisons.
-
-Do not make medical, financial or safety claims.
 
 Do not generate URLs.
 
 Do not generate affiliate links.
 
-Do not write hashtags unless specifically requested.
+Do not generate hashtags unless specifically requested.
 
 Do not use hard-sell language.
 
-Do not say:
+Avoid phrases like:
+
 "wajib beli"
-"jangan lepaskan"
 "confirm berbaloi"
 "confirm puas hati"
 "best gila"
-"number one"
 "terbaik"
-unless those claims are explicitly supported.
+"number one"
+"jangan lepaskan"
 
-The story must feel like an observation,
-not an advertisement.
+unless the claim is explicitly supported.
+
+The story should feel like storytelling,
+not advertising.
 `;
 
 
 // ============================================================
-// STAGE 1 — SOFIAN BRAIN
+// STAGE 1
+// SOFIAN BRAIN
 // ============================================================
 
 function buildBrainPrompt(productName) {
 
     return `
+
 You are SOFIAN BRAIN.
 
-Your job is NOT to write the final story.
+You are responsible only for the thinking structure.
 
-Your job is to think about a travel situation
-that could naturally lead to a product mention.
+You are NOT writing the final Threads story.
 
 ${SOFIAN_IDENTITY}
 
@@ -344,23 +435,29 @@ ${SOFIAN_VOICE}
 
 ${GENERAL_RULES}
 
-VERY IMPORTANT:
+PRODUCT:
+
+${productName}
+
+IMPORTANT:
 
 You are NOT given the product description.
 
-You must NOT invent what the product does.
+Therefore you must NOT invent:
 
-You must NOT invent product specifications.
-
-You must NOT invent product benefits.
-
-You only know that the story will eventually introduce:
-
-"${productName}"
+- what the product does
+- product specifications
+- product benefits
+- product performance
+- product size
+- product weight
+- product price
+- product features
 
 Treat the product as an unknown object.
 
-Your job is to create the storytelling structure around it.
+Your job is only to create a believable travel storytelling situation
+where the product can later be introduced.
 
 Think about:
 
@@ -374,13 +471,25 @@ Think about:
 
 The product_role must NOT contain product facts.
 
-For example:
+GOOD:
+
+"Introduce the product naturally after the travel problem."
 
 GOOD:
-"Introduce the product as a possible answer to the problem."
+
+"Let Sofian become curious about whether the product could solve the problem."
 
 BAD:
-"Introduce it because it is lightweight and has a 3-axis gimbal."
+
+"The product is useful because it is lightweight."
+
+BAD:
+
+"The product has a 3-axis gimbal."
+
+BAD:
+
+"The product fits inside a pocket."
 
 Return JSON only.
 
@@ -400,15 +509,17 @@ Required structure:
 
 
 // ============================================================
-// STAGE 2 — SOFIAN WRITER
+// STAGE 2
+// SOFIAN WRITER
 // ============================================================
 
 function buildWriterPrompt(brain) {
 
     return `
+
 You are SOFIAN WRITER.
 
-Turn the supplied story blueprint into a natural Threads storytelling post.
+Turn the supplied story blueprint into a natural Threads story.
 
 ${SOFIAN_IDENTITY}
 
@@ -420,17 +531,23 @@ STORY BLUEPRINT:
 
 ${JSON.stringify(brain, null, 2)}
 
-CRITICAL PRODUCT RULE:
+IMPORTANT:
 
-You DO NOT know the product description.
-
-You are intentionally NOT given the product facts.
-
-Therefore you MUST NOT invent product facts.
+You do NOT know the product description.
 
 The backend will insert the real product facts later.
 
-You have these placeholders:
+Therefore:
+
+DO NOT invent product facts.
+
+DO NOT describe the product yourself.
+
+DO NOT guess what the product does.
+
+Use placeholders instead.
+
+AVAILABLE PLACEHOLDERS:
 
 {{PRODUCT_NAME}}
 
@@ -444,39 +561,41 @@ You have these placeholders:
 
 {{FACT_5}}
 
-Use {{PRODUCT_NAME}} exactly ONCE.
+REQUIRED:
 
-Use {{FACT_1}} exactly ONCE.
+Use {{PRODUCT_NAME}} exactly once.
 
-You may use {{FACT_2}} if it exists.
+Use {{FACT_1}} exactly once.
 
-Do not invent what FACT_1 or FACT_2 says.
+{{FACT_2}} may be used if appropriate.
 
-Treat those placeholders as factual information supplied later by the backend.
+Do not invent the contents of the placeholders.
 
-IMPORTANT:
+The backend will replace them with real information.
 
-The story must still feel natural when the placeholders are replaced.
+STORY:
 
-Example structure:
+The story should contain 6–10 parts.
+
+Recommended flow:
 
 Part 1:
-Observation / hook.
+Interesting observation or hook.
 
 Part 2:
-Small travel problem.
+Travel annoyance or small problem.
 
 Part 3:
-Sofian's reaction.
+Sofian reacts.
 
 Part 4:
-Tension or trade-off.
+Tension / trade-off.
 
 Part 5:
-Natural product reveal using {{PRODUCT_NAME}}.
+Natural introduction of {{PRODUCT_NAME}}.
 
 Part 6:
-Use {{FACT_1}} naturally.
+Introduce {{FACT_1}} naturally.
 
 Part 7:
 Sofian's opinion.
@@ -484,27 +603,33 @@ Sofian's opinion.
 Part 8:
 Soft ending.
 
-This is only a suggested structure.
-You may use 6–10 parts.
+This is only a guide.
 
-Do not force the product into the story too early.
+The story can be 6–10 parts.
 
 Do not make every part about the product.
 
-Do not sound like an advertisement.
+Do not turn the story into a product review.
 
-Do not claim personal use.
+Do not make Sofian claim personal product experience.
 
 Do not say:
-"I used it"
-"I tried it"
-"I bought it"
-"I tested it"
-"I've been using it"
-"I brought it with me"
-"I took it travelling"
 
-unless such experience was explicitly supplied.
+"I used it."
+
+"I tried it."
+
+"I bought it."
+
+"I tested it."
+
+"I've been using it."
+
+"I brought it with me."
+
+"I travelled with it."
+
+unless that experience is explicitly provided.
 
 Do NOT generate URLs.
 
@@ -528,43 +653,52 @@ Required structure:
 
 
 // ============================================================
-// AI PROVIDERS
+// GEMINI
 // ============================================================
 
 async function callGemini(prompt) {
 
     if (!GEMINI_API_KEY) {
-        throw new Error("GEMINI_API_KEY is not configured.");
+        throw new Error(
+            "GEMINI_API_KEY is not configured."
+        );
     }
 
     const url =
         `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-    const response = await fetch(url, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            contents: [
-                {
-                    parts: [
-                        {
-                            text: prompt
-                        }
-                    ]
+    const response = await fetch(
+        url,
+        {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [
+                            {
+                                text: prompt
+                            }
+                        ]
+                    }
+                ],
+
+                generationConfig: {
+                    temperature: 0.65,
+                    responseMimeType: "application/json"
                 }
-            ],
-            generationConfig: {
-                temperature: 0.65,
-                responseMimeType: "application/json"
-            }
-        })
-    });
+            })
+        }
+    );
 
     const data = await response.json();
 
     if (!response.ok) {
+
         throw new Error(
             data?.error?.message ||
             "Gemini request failed."
@@ -575,32 +709,55 @@ async function callGemini(prompt) {
         data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!text) {
-        throw new Error("Gemini returned empty response.");
+
+        throw new Error(
+            "Gemini returned empty response."
+        );
     }
 
     return text;
 }
 
 
+// ============================================================
+// OPENROUTER
+// ============================================================
+
 async function callOpenRouter(prompt) {
 
     if (!OPENROUTER_API_KEY) {
-        throw new Error("OPENROUTER_API_KEY is not configured.");
+
+        throw new Error(
+            "OPENROUTER_API_KEY is not configured."
+        );
     }
 
     const response = await fetch(
         "https://openrouter.ai/api/v1/chat/completions",
         {
             method: "POST",
+
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                "HTTP-Referer": "https://storyaff-ai.onrender.com",
-                "X-Title": "StoryAff AI"
+
+                "Authorization":
+                    `Bearer ${OPENROUTER_API_KEY}`,
+
+                "HTTP-Referer":
+                    "https://storyaff-ai.onrender.com",
+
+                "X-Title":
+                    "StoryAff AI"
             },
+
             body: JSON.stringify({
-                model: OPENROUTER_MODEL,
-                temperature: 0.65,
+
+                model:
+                    OPENROUTER_MODEL,
+
+                temperature:
+                    0.65,
+
                 messages: [
                     {
                         role: "user",
@@ -611,9 +768,11 @@ async function callOpenRouter(prompt) {
         }
     );
 
-    const data = await response.json();
+    const data =
+        await response.json();
 
     if (!response.ok) {
+
         throw new Error(
             data?.error?.message ||
             "OpenRouter request failed."
@@ -624,20 +783,30 @@ async function callOpenRouter(prompt) {
         data?.choices?.[0]?.message?.content;
 
     if (!text) {
-        throw new Error("OpenRouter returned empty response.");
+
+        throw new Error(
+            "OpenRouter returned empty response."
+        );
     }
 
     return text;
 }
 
 
+// ============================================================
+// AI ROUTER
+// ============================================================
+
 async function callAI(prompt) {
 
     let geminiError = null;
 
-    // Gemini first
+    // GEMINI FIRST
+
     try {
-        const text = await callGemini(prompt);
+
+        const text =
+            await callGemini(prompt);
 
         return {
             provider: "gemini",
@@ -646,7 +815,8 @@ async function callAI(prompt) {
 
     } catch (error) {
 
-        geminiError = error;
+        geminiError =
+            error;
 
         console.log(
             "Gemini failed:",
@@ -655,10 +825,12 @@ async function callAI(prompt) {
     }
 
 
-    // OpenRouter fallback
+    // OPENROUTER FALLBACK
+
     try {
 
-        const text = await callOpenRouter(prompt);
+        const text =
+            await callOpenRouter(prompt);
 
         return {
             provider: "openrouter",
@@ -696,25 +868,29 @@ function validateBrain(brain) {
             !brain[field] ||
             typeof brain[field] !== "string"
         ) {
+
             throw new Error(
                 `Brain missing field: ${field}`
             );
         }
     }
 
-    const brainText = JSON.stringify(brain);
+    const brainText =
+        JSON.stringify(brain);
 
     if (containsUrl(brainText)) {
+
         throw new Error(
             "Brain generated a URL."
         );
     }
 
-    if (containsBannedIndonesian(brainText)) {
-        throw new Error(
-            "Brain contains banned Indonesian wording."
-        );
-    }
+    // IMPORTANT:
+    // We intentionally DO NOT reject the Brain
+    // for Indonesian wording.
+    //
+    // Brain is internal planning only.
+    // Final writer output is what matters.
 
     return true;
 }
@@ -724,86 +900,138 @@ function validateBrain(brain) {
 // STORY SHELL VALIDATION
 // ============================================================
 
-function validateStoryShell(parts, facts) {
+function validateStoryShell(
+    parts,
+    facts
+) {
 
     if (!Array.isArray(parts)) {
+
         throw new Error(
             "Writer did not return story parts."
         );
     }
 
-    if (parts.length < 6 || parts.length > 10) {
+
+    if (
+        parts.length < 6 ||
+        parts.length > 10
+    ) {
+
         throw new Error(
             `Story must contain 6–10 parts. Got ${parts.length}.`
         );
     }
 
-    const combined = parts.join("\n");
+
+    const combined =
+        parts.join("\n");
+
 
     if (containsUrl(combined)) {
+
         throw new Error(
             "Writer generated a URL."
         );
     }
 
+
+    // Only reject obvious Indonesian words
+    // from final writer output.
+
     if (containsBannedIndonesian(combined)) {
+
         throw new Error(
-            "Writer contains banned Indonesian wording."
+            "Writer contains Indonesian-style wording."
         );
     }
+
 
     if (containsFakeExperience(combined)) {
+
         throw new Error(
-            "Writer generated fake personal experience."
+            "Writer generated possible fake personal experience."
         );
     }
 
+
     const productNameCount =
-        (combined.match(/\{\{PRODUCT_NAME\}\}/g) || []).length;
+        (
+            combined.match(
+                /\{\{PRODUCT_NAME\}\}/g
+            ) || []
+        ).length;
+
 
     if (productNameCount !== 1) {
+
         throw new Error(
             `{{PRODUCT_NAME}} must appear exactly once. Found ${productNameCount}.`
         );
     }
 
+
     const fact1Count =
-        (combined.match(/\{\{FACT_1\}\}/g) || []).length;
+        (
+            combined.match(
+                /\{\{FACT_1\}\}/g
+            ) || []
+        ).length;
+
 
     if (fact1Count !== 1) {
+
         throw new Error(
             `{{FACT_1}} must appear exactly once. Found ${fact1Count}.`
         );
     }
 
-    // If the description has multiple facts,
-    // the writer may use FACT_2 but cannot use
-    // placeholders that don't exist.
-    for (let i = 2; i <= 5; i++) {
+
+    for (
+        let i = 2;
+        i <= 5;
+        i++
+    ) {
 
         const placeholder =
             `{{FACT_${i}}}`;
 
-        const count =
-            (combined.match(
-                new RegExp(
-                    placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-                    "g"
-                )
-            ) || []).length;
+        const escaped =
+            placeholder.replace(
+                /[.*+?^${}()|[\]\\]/g,
+                "\\$&"
+            );
 
-        if (count > 0 && !facts[i - 1]) {
+        const count =
+            (
+                combined.match(
+                    new RegExp(
+                        escaped,
+                        "g"
+                    )
+                ) || []
+            ).length;
+
+
+        if (
+            count > 0 &&
+            !facts[i - 1]
+        ) {
+
             throw new Error(
                 `Writer used ${placeholder}, but that fact does not exist.`
             );
         }
 
+
         if (count > 1) {
+
             throw new Error(
                 `${placeholder} may only appear once.`
             );
         }
     }
+
 
     return true;
 }
@@ -813,36 +1041,53 @@ function validateStoryShell(parts, facts) {
 // PRODUCT FACT INJECTION
 // ============================================================
 
-function injectProductFacts(parts, productName, productDescription) {
+function injectProductFacts(
+    parts,
+    productName,
+    productDescription
+) {
 
-    const facts = splitProductFacts(
-        productDescription
-    );
+    const facts =
+        splitProductFacts(
+            productDescription
+        );
+
 
     if (!facts.length) {
+
         throw new Error(
             "Product description contains no usable facts."
         );
     }
 
-    // At minimum FACT_1 must exist.
-    let story = parts.join("\n");
 
-    story = replacePlaceholders(
-        story,
-        productName,
-        facts
-    );
+    let story =
+        parts.join("\n");
 
-    // Make sure no placeholder survives
+
+    story =
+        replacePlaceholders(
+            story,
+            productName,
+            facts
+        );
+
+
     const leftoverPlaceholder =
         /\{\{(?:PRODUCT_NAME|FACT_\d+)\}\}/g;
 
-    if (leftoverPlaceholder.test(story)) {
+
+    if (
+        leftoverPlaceholder.test(
+            story
+        )
+    ) {
+
         throw new Error(
             "Story contains unresolved product placeholders."
         );
     }
+
 
     return story;
 }
@@ -852,105 +1097,146 @@ function injectProductFacts(parts, productName, productDescription) {
 // FINAL STORY VALIDATION
 // ============================================================
 
-function validateFinalStory(story, productName) {
+function validateFinalStory(
+    story,
+    productName
+) {
 
     if (!story) {
+
         throw new Error(
             "Final story is empty."
         );
     }
 
+
     if (containsUrl(story)) {
+
         throw new Error(
             "Final story unexpectedly contains a URL."
         );
     }
 
+
     if (containsBannedIndonesian(story)) {
+
         throw new Error(
-            "Final story contains banned Indonesian wording."
+            "Final story contains Indonesian-style wording."
         );
     }
 
+
     if (containsFakeExperience(story)) {
+
         throw new Error(
             "Final story contains possible fake personal experience."
         );
     }
 
+
     if (!story.includes(productName)) {
+
         throw new Error(
             "Product name missing from final story."
         );
     }
 
-    const parts = story
-        .split("\n")
-        .filter(Boolean);
 
-    if (parts.length < 6 || parts.length > 10) {
+    const parts =
+        story
+            .split("\n")
+            .filter(Boolean);
+
+
+    if (
+        parts.length < 6 ||
+        parts.length > 10
+    ) {
+
         throw new Error(
             `Final story must contain 6–10 parts. Got ${parts.length}.`
         );
     }
+
 
     return true;
 }
 
 
 // ============================================================
-// AFFILIATE INJECTION
+// AFFILIATE URL INJECTION
 // ============================================================
 
-function injectAffiliateUrl(story, affiliateUrl) {
+function injectAffiliateUrl(
+    story,
+    affiliateUrl
+) {
 
     if (!affiliateUrl) {
+
         throw new Error(
             "Affiliate URL is required."
         );
     }
 
-    if (!/^https?:\/\/.+/i.test(affiliateUrl)) {
+
+    if (
+        !/^https?:\/\/.+/i.test(
+            affiliateUrl
+        )
+    ) {
+
         throw new Error(
             "Invalid affiliate URL."
         );
     }
 
-    // The story must NEVER already contain a URL.
+
     if (containsUrl(story)) {
+
         throw new Error(
             "Cannot inject affiliate URL because story already contains a URL."
         );
     }
 
-    const parts = story
-        .split("\n")
-        .filter(Boolean);
+
+    const parts =
+        story
+            .split("\n")
+            .filter(Boolean);
+
 
     if (parts.length < 6) {
+
         throw new Error(
-            "Story needs at least 6 parts before affiliate injection."
+            "Story needs at least 6 parts."
         );
     }
 
-    // Remove accidental previous affiliate marker
-    const cleaned = parts.map(part =>
-        part.replace(
-            /\s*AFFILIATE_LINK\s*$/i,
-            ""
-        ).trim()
-    );
 
-    // Inject ONLY into final part.
+    const cleaned =
+        parts.map(part =>
+            part
+                .replace(
+                    /\s*AFFILIATE_LINK\s*$/i,
+                    ""
+                )
+                .trim()
+        );
+
+
+    // ONLY final part receives affiliate URL.
+
     cleaned[cleaned.length - 1] =
         `${cleaned[cleaned.length - 1]}\n${affiliateUrl}`;
+
 
     return cleaned.join("\n");
 }
 
 
 // ============================================================
-// FULL GENERATION PIPELINE
+// FULL STORY PIPELINE
 // ============================================================
 
 async function generateStory({
@@ -959,60 +1245,110 @@ async function generateStory({
 }) {
 
     if (!productName) {
+
         throw new Error(
             "productName is required."
         );
     }
 
+
     if (!productDescription) {
+
         throw new Error(
             "productDescription is required."
         );
     }
 
 
-    // --------------------------------------------------------
+    // ========================================================
     // STEP 1
-    // Sofian Brain
-    // --------------------------------------------------------
+    // SOFIAN BRAIN
+    // ========================================================
+
+    console.log(
+        "STEP 1: Running Sofian Brain..."
+    );
+
 
     const brainPrompt =
-        buildBrainPrompt(productName);
+        buildBrainPrompt(
+            productName
+        );
+
 
     const brainAI =
-        await callAI(brainPrompt);
+        await callAI(
+            brainPrompt
+        );
+
 
     const brain =
-        extractJson(brainAI.text);
+        extractJson(
+            brainAI.text
+        );
 
-    validateBrain(brain);
+
+    validateBrain(
+        brain
+    );
 
 
-    // --------------------------------------------------------
+    console.log(
+        "Brain provider:",
+        brainAI.provider
+    );
+
+
+    // ========================================================
     // STEP 2
-    // Sofian Writer
-    // --------------------------------------------------------
+    // SOFIAN WRITER
+    // ========================================================
+
+    console.log(
+        "STEP 2: Running Sofian Writer..."
+    );
+
 
     const writerPrompt =
-        buildWriterPrompt(brain);
+        buildWriterPrompt(
+            brain
+        );
+
 
     const writerAI =
-        await callAI(writerPrompt);
+        await callAI(
+            writerPrompt
+        );
+
 
     const writer =
-        extractJson(writerAI.text);
+        extractJson(
+            writerAI.text
+        );
+
 
     let parts =
-        normalizeParts(writer.parts);
+        normalizeParts(
+            writer.parts
+        );
 
 
-    // --------------------------------------------------------
+    console.log(
+        "Writer provider:",
+        writerAI.provider
+    );
+
+
+    // ========================================================
     // STEP 3
-    // Validate AI shell
-    // --------------------------------------------------------
+    // VALIDATE SHELL
+    // ========================================================
 
     const facts =
-        splitProductFacts(productDescription);
+        splitProductFacts(
+            productDescription
+        );
+
 
     validateStoryShell(
         parts,
@@ -1020,19 +1356,26 @@ async function generateStory({
     );
 
 
-    // --------------------------------------------------------
+    // ========================================================
     // STEP 4
-    // Add numbering
-    // --------------------------------------------------------
+    // NUMBER PARTS
+    // ========================================================
 
     parts =
-        cleanStoryParts(parts);
+        cleanStoryParts(
+            parts
+        );
 
 
-    // --------------------------------------------------------
+    // ========================================================
     // STEP 5
-    // Backend fact injection
-    // --------------------------------------------------------
+    // BACKEND FACT INJECTION
+    // ========================================================
+
+    console.log(
+        "STEP 3: Injecting verified product facts..."
+    );
+
 
     let finalStory =
         injectProductFacts(
@@ -1042,10 +1385,10 @@ async function generateStory({
         );
 
 
-    // --------------------------------------------------------
+    // ========================================================
     // STEP 6
-    // Final validation
-    // --------------------------------------------------------
+    // FINAL VALIDATION
+    // ========================================================
 
     validateFinalStory(
         finalStory,
@@ -1054,6 +1397,7 @@ async function generateStory({
 
 
     return {
+
         success: true,
 
         provider: {
@@ -1063,223 +1407,307 @@ async function generateStory({
 
         brain,
 
-        story: finalStory
+        story:
+            finalStory
     };
 }
 
 
 // ============================================================
-// ROUTES
+// ROOT
 // ============================================================
 
-app.get("/", (req, res) => {
+app.get(
+    "/",
+    (req, res) => {
 
-    res.json({
-        success: true,
-        app: "StoryAff AI",
-        version: "1.9.4",
-        status: "online"
-    });
+        res.json({
 
-});
+            success: true,
+
+            app: "StoryAff AI",
+
+            version: "1.9.4.1",
+
+            status: "online"
+
+        });
+
+    }
+);
 
 
-app.get("/api/health", (req, res) => {
+// ============================================================
+// HEALTH
+// ============================================================
 
-    res.json({
-        success: true,
-        status: "healthy",
-        version: "1.9.4",
-        geminiConfigured: !!GEMINI_API_KEY,
-        openrouterConfigured: !!OPENROUTER_API_KEY
-    });
+app.get(
+    "/api/health",
+    (req, res) => {
 
-});
+        res.json({
+
+            success: true,
+
+            status: "healthy",
+
+            version: "1.9.4.1",
+
+            geminiConfigured:
+                !!GEMINI_API_KEY,
+
+            openrouterConfigured:
+                !!OPENROUTER_API_KEY
+
+        });
+
+    }
+);
 
 
 // ============================================================
 // AI TEST
 // ============================================================
 
-app.post("/api/ai/test", async (req, res) => {
+app.post(
+    "/api/ai/test",
+    async (req, res) => {
 
-    try {
+        try {
 
-        const {
-            productName,
-            productDescription
-        } = req.body;
-
-        if (!productName) {
-            return res.status(400).json({
-                success: false,
-                error: "productName is required."
-            });
-        }
-
-        if (!productDescription) {
-            return res.status(400).json({
-                success: false,
-                error: "productDescription is required."
-            });
-        }
-
-
-        const result =
-            await generateStory({
+            const {
                 productName,
                 productDescription
+            } = req.body;
+
+
+            if (!productName) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    error:
+                        "productName is required."
+
+                });
+            }
+
+
+            if (!productDescription) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    error:
+                        "productDescription is required."
+
+                });
+            }
+
+
+            const result =
+                await generateStory({
+
+                    productName,
+
+                    productDescription
+
+                });
+
+
+            return res.json({
+
+                success: true,
+
+                version:
+                    "1.9.4.1",
+
+                provider:
+                    result.provider,
+
+                brain:
+                    result.brain,
+
+                story:
+                    result.story
+
             });
 
 
-        return res.json({
-            success: true,
-            version: "1.9.4",
-            provider: result.provider,
-            brain: result.brain,
-            story: result.story
-        });
+        } catch (error) {
+
+            console.error(
+                "/api/ai/test error:",
+                error
+            );
 
 
-    } catch (error) {
+            return res.status(500).json({
 
-        console.error(
-            "/api/ai/test error:",
-            error
-        );
+                success: false,
 
-        return res.status(500).json({
-            success: false,
-            error: error.message
-        });
+                error:
+                    error.message
+
+            });
+        }
+
     }
-
-});
+);
 
 
 // ============================================================
 // AI GENERATE
 // ============================================================
 
-app.post("/api/ai/generate", async (req, res) => {
+app.post(
+    "/api/ai/generate",
+    async (req, res) => {
 
-    try {
+        try {
 
-        const {
-            productName,
-            productDescription,
-            affiliateUrl
-        } = req.body;
-
-
-        if (!productName) {
-            return res.status(400).json({
-                success: false,
-                error: "productName is required."
-            });
-        }
-
-
-        if (!productDescription) {
-            return res.status(400).json({
-                success: false,
-                error: "productDescription is required."
-            });
-        }
-
-
-        if (!affiliateUrl) {
-            return res.status(400).json({
-                success: false,
-                error: "affiliateUrl is required."
-            });
-        }
-
-
-        // ----------------------------------------------------
-        // Generate story WITHOUT affiliate URL
-        // ----------------------------------------------------
-
-        const result =
-            await generateStory({
+            const {
                 productName,
-                productDescription
+                productDescription,
+                affiliateUrl
+            } = req.body;
+
+
+            if (!productName) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    error:
+                        "productName is required."
+
+                });
+            }
+
+
+            if (!productDescription) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    error:
+                        "productDescription is required."
+
+                });
+            }
+
+
+            if (!affiliateUrl) {
+
+                return res.status(400).json({
+
+                    success: false,
+
+                    error:
+                        "affiliateUrl is required."
+
+                });
+            }
+
+
+            // Generate story WITHOUT URL
+
+            const result =
+                await generateStory({
+
+                    productName,
+
+                    productDescription
+
+                });
+
+
+            // Inject URL ONCE
+
+            const finalStory =
+                injectAffiliateUrl(
+                    result.story,
+                    affiliateUrl
+                );
+
+
+            // Final URL protection
+
+            const urlMatches =
+                finalStory.match(
+                    /https?:\/\/[^\s]+/gi
+                ) || [];
+
+
+            if (
+                urlMatches.length !== 1
+            ) {
+
+                throw new Error(
+                    `Affiliate URL protection failed. Expected 1 URL, found ${urlMatches.length}.`
+                );
+            }
+
+
+            return res.json({
+
+                success: true,
+
+                version:
+                    "1.9.4.1",
+
+                provider:
+                    result.provider,
+
+                story:
+                    finalStory,
+
+                affiliateUrlInjected:
+                    true,
+
+                urlCount:
+                    urlMatches.length
+
             });
 
 
-        // ----------------------------------------------------
-        // Inject affiliate URL ONCE
-        // ----------------------------------------------------
+        } catch (error) {
 
-        const finalStory =
-            injectAffiliateUrl(
-                result.story,
-                affiliateUrl
+            console.error(
+                "/api/ai/generate error:",
+                error
             );
 
 
-        // ----------------------------------------------------
-        // Final URL count protection
-        // ----------------------------------------------------
+            return res.status(500).json({
 
-        const urlMatches =
-            finalStory.match(
-                /https?:\/\/[^\s]+/gi
-            ) || [];
+                success: false,
 
+                error:
+                    error.message
 
-        if (urlMatches.length !== 1) {
-            throw new Error(
-                `Affiliate URL protection failed. Expected 1 URL, found ${urlMatches.length}.`
-            );
+            });
         }
-
-
-        return res.json({
-
-            success: true,
-
-            version: "1.9.4",
-
-            provider: result.provider,
-
-            story: finalStory,
-
-            affiliateUrlInjected: true,
-
-            urlCount: urlMatches.length
-
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "/api/ai/generate error:",
-            error
-        );
-
-        return res.status(500).json({
-
-            success: false,
-
-            error: error.message
-
-        });
 
     }
-
-});
+);
 
 
 // ============================================================
-// SERVER
+// START SERVER
 // ============================================================
 
-app.listen(PORT, () => {
+app.listen(
+    PORT,
+    () => {
 
-    console.log(
-        `StoryAff AI v1.9.4 running on port ${PORT}`
-    );
+        console.log(
+            `StoryAff AI v1.9.4.1 running on port ${PORT}`
+        );
 
-});
+    }
+);
