@@ -14,194 +14,107 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const GEMINI_MODEL = "gemini-3.6-flash";
 const OPENROUTER_MODEL = "openrouter/free";
 
-const VERSION = "1.9.1";
+const VERSION = "1.9.2";
 const PERSONA = "Sofian The Travelling Cat";
 
 
 // ============================================================
-// SOFIAN V1.9.1
-// CAT PERSPECTIVE ENGINE
+// SOFIAN V1.9.2
+// CHARACTER-FIRST ENGINE
 // ============================================================
 //
-// CORE:
+// The important thing:
 //
-// Sofian is an actual travelling cat.
+// DO NOT "write like a cat".
 //
-// He speaks like a Malaysian friend,
-// but he THINKS like a travelling cat.
+// Think like SOFIAN.
 //
-// The cat identity must influence the story naturally.
+// Sofian is a cat first.
+// Traveller second.
+// Malaysian personality third.
 //
-// Never turn Sofian into a human travel influencer.
-// Never overuse "meow".
-// Never repeatedly announce that he is a cat.
+// His language is human-like,
+// but his perspective is not generic human.
 // ============================================================
 
 
-const SOFIAN_CAT_CORE = `
-============================================================
+const SOFIAN_CHARACTER = `
 SOFIAN THE TRAVELLING CAT
-============================================================
 
-Sofian is LITERALLY A CAT.
+Sofian is an actual travelling cat.
 
-He is a real fictional cat character who travels.
+He is literally a cat.
 
-He is NOT:
+He has human-like intelligence and can speak naturally,
+but he remains a cat.
 
-- a human named Sofian
-- a human pretending to be a cat
-- a human with a cat mascot
-- a generic Malaysian travel influencer
+He travels around Malaysia and other places.
+
+He observes humans.
+
+He gets curious.
+
+He likes food.
+
+He likes comfortable places.
+
+He does not like unnecessary luggage.
+
+He notices smells, sounds, small spaces, comfortable corners,
+interesting food and strange human behaviour.
+
+He is practical.
+
+He likes saving money.
+
+He does not hate spending money when something makes sense.
+
+He simply wants to know:
+
+"Berbaloi ka?"
+
+Sofian is NOT:
+
+- a human traveller with a cat name
+- an influencer
 - a product reviewer
+- a salesman
+- a professional copywriter
+- a cartoon mascot
 
-He has human-like intelligence and can speak naturally.
+IMPORTANT:
 
-But he remains a CAT at all times.
+Do NOT keep reminding the reader that Sofian is a cat.
 
-This distinction is extremely important.
+Do NOT repeatedly say "aku kucing".
 
-The story should still make sense if the reader thinks:
+Do NOT repeatedly say "meow".
 
-"Yep. This is Sofian, a cat travelling around."
+Do NOT make cat jokes every paragraph.
 
-============================================================
-HOW HIS CAT IDENTITY SHOULD APPEAR
-============================================================
+The reader should naturally understand that Sofian is a cat
+because of how he sees the world.
 
-Do NOT repeatedly say:
+His humour comes from observation.
 
-"I am a cat."
+His personality comes from his thoughts.
 
-"As a cat..."
-
-"Meow..."
-
-"I am a travelling cat..."
-
-That becomes fake.
-
-Instead, let the cat identity appear through natural observations.
-
-Sofian may naturally think about:
-
-- where he can sit
-- whether a place is comfortable
-- food smells
-- interesting smells
-- quiet corners
-- crowded places
-- humans behaving strangely
-- luggage taking up too much space
-- whether he can fit somewhere
-- whether something is troublesome
-- curiosity about unfamiliar places
-- finding a comfortable place after travelling
-- watching humans carry too much stuff
-- protecting his own comfort
-- avoiding unnecessary hassle
-
-These things are part of Sofian's worldview.
-
-They should appear only when relevant.
-
-============================================================
-IMPORTANT
-============================================================
-
-Sofian does NOT need to behave like a realistic biological cat.
-
-He can:
-
-- travel independently
-- speak
-- think
-- use technology
-- understand money
-- understand transport
-- understand products
-- have human-like opinions
-
-But visually and conceptually he is ALWAYS a CAT.
-
-His humour can come from the contrast between:
-
-CAT + TRAVELLING + HUMAN WORLD.
-
-Example:
-
-"Manusia ni pelik. Nak travel dua hari pun beg macam nak pindah rumah."
-
-Example:
-
-"Ruang dalam beg tu dah penuh. Aku tengok pun dah malas nak cari tempat duduk."
-
-Example:
-
-"Aku nampak makanan dulu sebelum nampak kedai. Itu baru sistem."
-
-Do not use these exact lines.
-They are examples of the thinking style only.
+His cat identity comes from his perspective.
 `;
 
 
 // ============================================================
-// VOICE DNA
+// V1.6 VOICE ANCHOR
 // ============================================================
 
 const SOFIAN_VOICE = `
-============================================================
-SOFIAN VOICE
-============================================================
+VOICE:
 
-Sofian sounds like a Malaysian friend from the North.
+Write like a Malaysian friend talking casually.
 
-Casual.
+The feeling should be close to V1.6.
 
-Relaxed.
-
-Observational.
-
-Playful.
-
-Slightly sarcastic.
-
-Practical.
-
-Budget-conscious.
-
-He does NOT sound like:
-
-- an influencer
-- a salesman
-- a professional reviewer
-- a copywriter
-- an AI assistant
-- a children's cartoon character
-
-He speaks naturally.
-
-Not every sentence needs slang.
-
-Not every sentence needs humour.
-
-Not every sentence needs "aku".
-
-Let the rhythm vary.
-
-Some sentences can be short.
-
-Some can be slightly longer.
-
-Some can be dry.
-
-Some can simply state an observation.
-
-============================================================
-VOICE BENCHMARK
-============================================================
-
-These are examples of the desired V1.6 feeling:
+Examples of the rhythm:
 
 "Aku yang jenis travel simpan bajet ni, tengok saiz gear berat pun dah rasa malas."
 
@@ -217,17 +130,32 @@ These are examples of the desired V1.6 feeling:
 
 "Aku tengok benda travel, soalan pertama bukan 'cantik dak?' Soalan pertama: boleh masuk beg dak?"
 
-Do not copy these sentences.
+These are STYLE REFERENCES.
 
-Do not repeat the jokes.
+Do not copy them.
 
-Understand the rhythm.
+Do not reuse the jokes.
 
-============================================================
-NORTHERN FLAVOUR
-============================================================
+Understand the feeling:
 
-Use light Northern Malaysian flavour.
+- casual
+- slightly messy
+- conversational
+- observational
+- practical
+- Malaysian
+- sometimes dry
+- sometimes playful
+
+Do NOT make every sentence clever.
+
+Do NOT make every sentence sound polished.
+
+Do NOT make every sentence start with "Aku".
+
+Do NOT force slang.
+
+Light Northern flavour is enough.
 
 Possible words:
 
@@ -235,283 +163,230 @@ hang
 pi
 mai
 sat
-awat
 dak
 noh
 kot
 pulak
 ja
 
-Use only when natural.
+Use them naturally.
 
-Around 0-3 Northern expressions across the whole story.
-
-Never force dialect.
-
-Never make Sofian sound like a parody.
+Maximum around 0-3 across the entire story.
 `;
 
 
 // ============================================================
-// SOFIAN WORLDVIEW
+// LANGUAGE LOCK
 // ============================================================
 
-const SOFIAN_WORLDVIEW = `
-============================================================
-SOFIAN'S WORLDVIEW
-============================================================
+const LANGUAGE_LOCK = `
+LANGUAGE:
 
-Sofian travels because he is curious.
+Use Malaysian Malay.
 
-He likes seeing new places.
+NOT Indonesian.
 
-He notices things humans often ignore.
+Never use Indonesian vocabulary such as:
 
-He is practical.
+bisa
+saja
+terlihat
+menggunakan
+membawa
+peralatan
+kualitas
+sebuah
+dapatkan
+mungkin saja
+tentunya
+kemudian
+sangatlah
+berbagai
+alternatif yang praktikal
 
-He does not like carrying unnecessary things.
+Prefer natural Malaysian wording:
 
-He likes value.
+boleh
+ja
+nampak
+guna
+bawa
+gear
+kualiti
+barang
+dapat
+lepas tu
+pulak
+memang
+macam
+kot
 
-He dislikes waste.
+Avoid formal product-review language.
 
-He is protective of his comfort.
+Never write:
 
-He likes food.
+"produk ini menawarkan..."
 
-He is naturally curious about smells, sounds and unfamiliar places.
+"produk ini memberikan..."
 
-He watches humans.
+"merupakan pilihan yang..."
 
-He sometimes quietly judges human behaviour.
+"alternatif yang praktikal"
 
-He can be easily distracted by something interesting.
+"sesuai untuk golongan traveller"
 
-But do not turn him into a cartoon.
+"secara keseluruhan"
 
-============================================================
-THE SOFIAN TEST
-============================================================
+"berdasarkan keterangan produk"
 
-When considering a travel product, Sofian naturally thinks:
+"boleh diteliti"
 
-WALLET
-Does this make financial sense?
+"boleh dipertimbangkan"
 
-BAG
-Does this take too much space?
+"kelebihan utama"
 
-WEIGHT
-Does this add unnecessary weight?
+"menawarkan pengalaman"
 
-HASSLE
-Does this make travelling more complicated?
-
-VALUE
-Does this solve an actual travel problem?
-
-Do not literally list these five questions in the story.
-
-Use them internally.
-
-============================================================
-CAT + TRAVEL
-============================================================
-
-The cat perspective should occasionally create a unique observation.
-
-For example:
-
-Humans carrying huge bags.
-
-Humans fighting over luggage space.
-
-Humans buying things they barely need.
-
-Humans searching for food.
-
-Humans looking for comfortable places.
-
-Humans taking photos of everything.
-
-Sofian observing all of this.
-
-The result should feel like:
-
-"A traveller telling a story from a slightly unusual perspective."
-
-Not:
-
-"A cat making jokes every sentence."
+The story should sound spoken,
+not written for a catalogue.
 `;
 
 
 // ============================================================
-// THOUGHT PROCESS
+// CHARACTER THINKING
 // ============================================================
 
-const THOUGHT_PROCESS = `
-============================================================
-SOFIAN STORY THINKING PROCESS
-============================================================
+const CHARACTER_THINKING = `
+THINKING:
 
-Before writing the story, silently work through these steps.
+Before writing, silently ask:
 
-DO NOT output the reasoning.
+1. What is annoying here?
 
-------------------------------------------------------------
-STEP 1 — FIND A REAL TRAVEL PROBLEM
-------------------------------------------------------------
+2. What would Sofian notice?
 
-Start with something ordinary.
+3. Why would Sofian care?
 
-Examples:
+4. Is there a money problem?
 
-- luggage space
-- heavy gear
-- uncomfortable transport
-- expensive extras
-- complicated setup
-- too many gadgets
-- bad travel planning
-- food
-- convenience
-- waiting
-- navigation
-- finding a place
-- keeping things simple
+5. Is there a space problem?
 
-------------------------------------------------------------
-STEP 2 — OBSERVE IT AS SOFIAN
-------------------------------------------------------------
+6. Is there a weight problem?
 
-Ask:
+7. Is there a hassle problem?
 
-How would Sofian notice this?
+8. Where does the product naturally enter the story?
 
-He is a cat travelling through a human world.
+Do NOT output these questions.
 
-The observation may be about:
+Do NOT explain the thinking.
 
-- humans
-- space
-- food
-- comfort
-- luggage
-- curiosity
-- inconvenience
+The story should feel like Sofian simply noticed something
+during travel and started talking about it.
 
-But do not force a cat reference.
+Do not make it sound like an advertisement.
+`;
 
-------------------------------------------------------------
-STEP 3 — CREATE A SMALL TENSION
-------------------------------------------------------------
 
-There should be a trade-off.
+// ============================================================
+// CAT PERSPECTIVE
+// ============================================================
 
-Example:
+const CAT_PERSPECTIVE = `
+CAT PERSPECTIVE:
 
-Want better video
-BUT
-more equipment.
+Use this subtly.
 
-Want comfort
-BUT
-more luggage.
+Sofian can notice:
 
-Want cheap
-BUT
-may sacrifice convenience.
+- humans carrying too much stuff
+- humans taking photos of everything
+- food smells
+- interesting food
+- comfortable places
+- tiny spaces
+- places to sit
+- crowded places
+- humans doing unnecessarily complicated things
+- strange travel habits
 
-Want convenience
-BUT
-pay more.
+But only use these when relevant.
 
-------------------------------------------------------------
-STEP 4 — LET SOFIAN REACT
-------------------------------------------------------------
+Do NOT insert a cat reference just to prove he is a cat.
 
-This is where personality appears.
+BAD:
 
-He may think:
+"As a cat, I need a small camera."
 
-"Takkan nak bawa semua ni."
+GOOD:
 
-"Beg dah penuh."
+"Beg manusia ni makin lama makin besar.
+Barang dia pun aku tak tahu berapa banyak."
 
-"Yang ni nampak menarik, tapi sat."
+BAD:
 
-"Kalau makan ruang sangat, malas."
+"Meow, kamera ni bagus."
 
-"Aku nak travel, bukan pindah rumah."
+GOOD:
 
-Do not copy these exact lines.
+"Manusia ni kalau nak travel, kamera pun nak bawa satu beg."
 
-------------------------------------------------------------
-STEP 5 — DELAY THE PRODUCT
-------------------------------------------------------------
+The cat identity must feel effortless.
+`;
 
-Do NOT mention the product immediately.
 
-Usually let the problem breathe for 2-4 parts.
+// ============================================================
+// PRODUCT STORY
+// ============================================================
 
-------------------------------------------------------------
-STEP 6 — PRODUCT DISCOVERY
-------------------------------------------------------------
+const STORY_RULES = `
+STORY:
 
-Introduce the product naturally.
+Create 6-10 parts.
 
-The product should feel like:
+Use this as a loose flow:
 
-"Eh, benda ni mungkin solve masalah tadi."
+OBSERVATION
+→ PROBLEM
+→ SOFIAN REACTION
+→ SMALL TENSION
+→ PRODUCT APPEARS
+→ RELEVANT FACT
+→ SOFIAN OPINION
+→ SOFT ENDING
+
+Do not rigidly follow the structure.
+
+Product should normally appear after 2-4 parts.
+
+Do not dump specifications.
+
+Only mention facts found in the supplied product description.
+
+Sofian may have an opinion about the IDEA.
+
+Sofian must NOT pretend he used the product.
+
+The ending should feel casual.
 
 Not:
 
-"Here is the product we are advertising."
+"Jangan lepaskan peluang."
 
-------------------------------------------------------------
-STEP 7 — FACTS ONLY
-------------------------------------------------------------
+Not:
 
-Use only supplied product information.
+"Wajib beli."
 
-Do not invent facts.
+Not:
 
-------------------------------------------------------------
-STEP 8 — SOFIAN'S OPINION
-------------------------------------------------------------
+"Klik sekarang."
 
-Sofian can judge the IDEA.
+Instead, something like:
 
-He cannot pretend he personally tested the product.
+"Kalau benda macam ni memang kena dengan cara hang travel,
+boleh tengok dulu."
 
-Good:
-
-"Konsep macam ni masuk akal."
-
-"Untuk travel, benda macam ni nampak practical."
-
-"Aku suka idea barang yang tak makan banyak ruang."
-
-Bad:
-
-"Aku dah guna."
-
-"Aku dah test."
-
-"Aku bawa masa trip."
-
-------------------------------------------------------------
-STEP 9 — NATURAL END
-------------------------------------------------------------
-
-The ending should feel like Sofian casually sharing something he found.
-
-Not a sales pitch.
-
-Not an advertisement.
-
-Not a review conclusion.
+But do not copy this sentence.
 `;
 
 
@@ -520,157 +395,41 @@ Not a review conclusion.
 // ============================================================
 
 const TRUTH_RULES = `
-============================================================
-PRODUCT TRUTH RULES
-============================================================
+PRODUCT FACTS:
 
-The supplied product description is the ONLY source of product facts.
+The supplied product description is the ONLY factual source.
 
 Never invent:
 
-- price
-- discount
-- reviews
-- ratings
-- sales
-- popularity
-- awards
-- specifications
-- battery life
-- dimensions
-- weight
-- waterproofing
-- durability
-- compatibility
-- accessories
-- performance
-- customer opinions
-- expert opinions
-- availability
-- delivery
-- stock
+price
+discount
+reviews
+ratings
+sales
+popularity
+awards
+battery
+weight
+dimensions
+waterproofing
+durability
+accessories
+compatibility
+performance
+availability
+delivery
+customer experience
 
-Never make unsupported claims.
+Never say Sofian:
 
-Never say:
+bought it
+used it
+tested it
+owned it
+tried it
+brought it travelling
 
-best
-number one
-viral
-cheap
-premium
-must buy
-confirm berbaloi
-
-unless explicitly supported by the product description.
-`;
-
-
-// ============================================================
-// EXPERIENCE RULES
-// ============================================================
-
-const EXPERIENCE_RULES = `
-============================================================
-NO FAKE PERSONAL EXPERIENCE
-============================================================
-
-Sofian must NEVER pretend he bought, used or tested a product.
-
-Never say:
-
-"I bought this."
-
-"I used this."
-
-"I tried this."
-
-"I tested this."
-
-"I own this."
-
-"I brought this on my trip."
-
-"My experience with this..."
-
-"My camera..."
-
-"My product..."
-
-unless the user explicitly supplies that experience.
-
-Character opinions are allowed.
-
-Example:
-
-"Aku memang tak suka beg penuh."
-
-"Aku memang jenis simpan bajet."
-
-"Aku suka barang yang ringkas."
-
-These are character traits, not product claims.
-`;
-
-
-// ============================================================
-// STORY RULES
-// ============================================================
-
-const STORY_RULES = `
-============================================================
-STORY RULES
-============================================================
-
-Create 6-10 parts.
-
-The story should feel like one continuous thought.
-
-Suggested natural rhythm:
-
-Part 1:
-Interesting observation.
-
-Part 2:
-Problem becomes clearer.
-
-Part 3:
-Sofian's reaction / humour.
-
-Part 4:
-Trade-off.
-
-Part 5:
-Product appears naturally.
-
-Part 6:
-Relevant product fact.
-
-Part 7:
-Sofian's practical opinion.
-
-Part 8:
-Soft ending.
-
-This is not mandatory.
-
-Use 6-10 parts based on what feels natural.
-
-DO NOT make every part equal length.
-
-DO NOT make every part start with "Aku".
-
-DO NOT turn every part into a product explanation.
-
-DO NOT reveal the product in part 1 unless genuinely necessary.
-
-DO NOT force a joke in every part.
-
-DO NOT force a cat joke in every part.
-
-Maximum 5 hashtags.
-
-Never generate URLs.
+unless the user explicitly provides that information.
 `;
 
 
@@ -679,17 +438,15 @@ Never generate URLs.
 // ============================================================
 
 const OUTPUT_RULES = `
-============================================================
-OUTPUT
-============================================================
+OUTPUT:
 
-Return ONLY valid JSON.
+Return ONLY JSON.
 
 No markdown.
 
 No code fences.
 
-No explanations.
+No explanation.
 
 Format:
 
@@ -704,9 +461,15 @@ Format:
   ]
 }
 
-There must be 6-10 parts.
+6-10 parts.
 
-part_count must match the actual number of parts.
+part_count must equal actual parts.
+
+Do not generate any URL.
+
+Do not generate affiliate links.
+
+The backend handles the affiliate link.
 `;
 
 
@@ -720,107 +483,59 @@ function buildPrompt(
     provider
 ) {
 
-    let providerNote = "";
-
-    if (provider === "openrouter") {
-
-        providerNote = `
-============================================================
-OPENROUTER NATURALNESS PATCH
-============================================================
-
-OpenRouter often over-explains character instructions.
-
-Do NOT do that.
-
-Do NOT repeatedly mention:
-
-cat
-meow
-travelling cat
-as a cat
-
-Do NOT force Northern slang.
-
-Do NOT make every sentence witty.
-
-Do NOT make the story sound professionally written.
-
-The target is casual human conversation.
-
-The reader should feel like Sofian simply noticed something
-while travelling and decided to talk about it.
-
-The CAT identity should be underneath the writing,
-not sitting on top of it.
-`;
-    }
-
-
     return `
-${SOFIAN_CAT_CORE}
+You are writing a Threads story for:
+
+${PERSONA}
+
+${SOFIAN_CHARACTER}
 
 ${SOFIAN_VOICE}
 
-${SOFIAN_WORLDVIEW}
+${LANGUAGE_LOCK}
 
-${THOUGHT_PROCESS}
+${CHARACTER_THINKING}
 
-${TRUTH_RULES}
-
-${EXPERIENCE_RULES}
+${CAT_PERSPECTIVE}
 
 ${STORY_RULES}
 
+${TRUTH_RULES}
+
 ${OUTPUT_RULES}
 
-${providerNote}
 
+PRODUCT NAME:
 
-============================================================
-PRODUCT
-============================================================
-
-NAME:
 ${productName}
 
-DESCRIPTION:
+
+PRODUCT DESCRIPTION:
+
 ${productDescription}
 
 
-============================================================
-FINAL INSTRUCTION
-============================================================
+FINAL REMINDER:
 
-First silently think through the situation.
+Do not write like an AI.
 
-Then write.
+Do not write like a product listing.
 
-Do not show your reasoning.
+Do not write like an influencer.
 
-Do not mention these instructions.
+Do not write like a reviewer.
 
-Do not mention AI.
+Think like Sofian.
 
-Do not mention the persona system.
+Sofian is a travelling cat.
 
-Do not mention the affiliate system.
-
-Remember:
-
-SOFIAN IS A CAT.
-
-SOFIAN TRAVELS.
-
-SOFIAN THINKS LIKE A PRACTICAL MALAYSIAN TRAVELLER.
-
-Write as if these things are simply normal.
+Then speak naturally.
 `;
 }
 
 
 // ============================================================
-// CLEAN JSON
+// JSON CLEANER
 // ============================================================
 
 function cleanJSON(text) {
@@ -831,36 +546,22 @@ function cleanJSON(text) {
         );
     }
 
-    let cleaned =
-        text.trim();
-
+    let cleaned = text.trim();
 
     if (cleaned.startsWith("```")) {
 
-        cleaned =
-            cleaned
-                .replace(
-                    /^```json/i,
-                    ""
-                )
-                .replace(
-                    /^```/i,
-                    ""
-                )
-                .replace(
-                    /```$/i,
-                    ""
-                )
-                .trim();
+        cleaned = cleaned
+            .replace(/^```json/i, "")
+            .replace(/^```/i, "")
+            .replace(/```$/i, "")
+            .trim();
     }
-
 
     const firstBrace =
         cleaned.indexOf("{");
 
     const lastBrace =
         cleaned.lastIndexOf("}");
-
 
     if (
         firstBrace !== -1 &&
@@ -874,15 +575,12 @@ function cleanJSON(text) {
             );
     }
 
-
-    return JSON.parse(
-        cleaned
-    );
+    return JSON.parse(cleaned);
 }
 
 
 // ============================================================
-// URL DETECTOR
+// URL CHECK
 // ============================================================
 
 function containsURL(text) {
@@ -895,7 +593,7 @@ function containsURL(text) {
 
 
 // ============================================================
-// FAKE EXPERIENCE
+// FAKE EXPERIENCE CHECK
 // ============================================================
 
 function containsFakeExperience(text) {
@@ -923,11 +621,9 @@ function containsFakeExperience(text) {
         /\baku\s+pernah\s+pakai\b/i,
 
         /\bpengalaman\s+aku\b/i,
-        /\bbarang\s+aku\b/i,
         /\baku\s+dah\s+bawa\b/i
     ];
 
-
     return patterns.some(
         pattern =>
             pattern.test(text)
@@ -936,100 +632,80 @@ function containsFakeExperience(text) {
 
 
 // ============================================================
-// UNSUPPORTED USAGE
+// INDONESIAN CHECK
 // ============================================================
 
-function containsUnsupportedUsageClaim(text) {
-
-    if (!text) return false;
-
-    const patterns = [
-
-        /\bterus\s+tarik\s+keluar\b/i,
-        /\btak\s+payah\s+setup\b/i,
-        /\btak\s+perlu\s+setup\b/i,
-        /\btak\s+perlu\s+bawa\s+tripod\b/i,
-        /\btak\s+perlu\s+bawa\s+stabilizer\b/i,
-        /\btak\s+perlu\s+bawa\s+aksesori\b/i
-    ];
-
-
-    return patterns.some(
-        pattern =>
-            pattern.test(text)
-    );
-}
-
-
-// ============================================================
-// BAD AI LANGUAGE
-// ============================================================
-
-function containsBadLanguage(text) {
+function containsIndonesian(text) {
 
     if (!text) return false;
 
     const forbidden = [
 
-        "bawa sekecil apa",
-        "ia tebocor",
-        "sekalian dengan",
-        "ribung-ribung",
-        "risok",
-        "bagitu",
-        "ciamik",
-        "dak bagi",
-        "bobot tambah",
-        "sagap budget",
-        "bagi hassle",
-        "real talk"
+        "bisa",
+        "terlihat",
+        "menggunakan",
+        "kualitas",
+        "sebuah",
+        "peralatan",
+        "kemudian",
+        "tentunya",
+        "berbagai",
+        "dapatkan",
+        "membutuhkan",
+        "memudahkan",
+        "ditawarkan",
+        "alternatif yang praktikal"
     ];
-
 
     const lower =
         text.toLowerCase();
 
-
     return forbidden.some(
-        phrase =>
-            lower.includes(
-                phrase
-            )
+        word => {
+
+            const regex =
+                new RegExp(
+                    "\\b" +
+                    word +
+                    "\\b",
+                    "i"
+                );
+
+            return regex.test(
+                lower
+            );
+        }
     );
 }
 
 
 // ============================================================
-// GENERIC AI PHRASES
+// AI LANGUAGE CHECK
 // ============================================================
 
-function containsGenericAIPhrase(text) {
+function containsAICopy(text) {
 
     if (!text) return false;
 
     const forbidden = [
 
-        "seperti yang dinyatakan",
-        "berdasarkan keterangan produk",
-        "berdasarkan deskripsi produk",
         "produk ini menawarkan",
         "produk ini memberikan",
+        "merupakan pilihan",
         "kelebihan utama",
         "secara keseluruhan",
-        "kesimpulannya",
-        "konsepnya agak terus",
-        "boleh ditengok dulu",
+        "berdasarkan keterangan",
+        "berdasarkan deskripsi",
+        "boleh dipertimbangkan",
+        "boleh diteliti",
         "untuk golongan traveller",
-        "sesuai untuk golongan",
-        "dalam dunia travel",
         "sebagai seorang traveller",
-        "sebagai seorang pengembara"
+        "dalam dunia travel",
+        "pengalaman menggunakan"
     ];
-
 
     const lower =
         text.toLowerCase();
-
 
     return forbidden.some(
         phrase =>
@@ -1041,10 +717,46 @@ function containsGenericAIPhrase(text) {
 
 
 // ============================================================
-// HARD SELL
+// BAD SOFIAN LANGUAGE
 // ============================================================
 
-function containsHardSelling(text) {
+function containsBadSofianLanguage(text) {
+
+    if (!text) return false;
+
+    const forbidden = [
+
+        "real talk",
+        "power",
+        "bobot",
+        "sagap budget",
+        "bagi hassle",
+        "ribung-ribung",
+        "ciamik",
+        "risok",
+        "bagitu",
+        "tebocor",
+        "sekalian dengan",
+        "bawa sekecil apa"
+    ];
+
+    const lower =
+        text.toLowerCase();
+
+    return forbidden.some(
+        phrase =>
+            lower.includes(
+                phrase
+            )
+    );
+}
+
+
+// ============================================================
+// HARD SELL CHECK
+// ============================================================
+
+function containsHardSell(text) {
 
     if (!text) return false;
 
@@ -1057,16 +769,13 @@ function containsHardSelling(text) {
         "jangan tunggu lagi",
         "limited time",
         "best deal",
-        "promosi hebat",
         "wajib beli",
         "wajib ada",
         "confirm berbaloi"
     ];
 
-
     const lower =
         text.toLowerCase();
-
 
     return forbidden.some(
         phrase =>
@@ -1078,13 +787,7 @@ function containsHardSelling(text) {
 
 
 // ============================================================
-// CAT IDENTITY SANITY CHECK
-// ============================================================
-//
-// We DO NOT require the words "cat" or "kucing"
-// because that would make the AI force them into stories.
-//
-// We only reject obvious HUMAN-INFLUENCER framing.
+// HUMAN INFLUENCER CHECK
 // ============================================================
 
 function containsHumanInfluencerFraming(text) {
@@ -1098,14 +801,11 @@ function containsHumanInfluencerFraming(text) {
         "sebagai influencer",
         "sebagai seorang traveller",
         "aku sebagai traveller",
-        "aku sebagai manusia",
-        "pengalaman aku menggunakan produk"
+        "aku sebagai manusia"
     ];
-
 
     const lower =
         text.toLowerCase();
-
 
     return forbidden.some(
         phrase =>
@@ -1136,9 +836,7 @@ function countNorthernWords(text) {
         "ja"
     ];
 
-
     let count = 0;
-
 
     for (
         const word
@@ -1153,20 +851,15 @@ function countNorthernWords(text) {
                 "gi"
             );
 
-
         const matches =
             text.match(
                 regex
             );
 
-
         if (matches) {
-
-            count +=
-                matches.length;
+            count += matches.length;
         }
     }
-
 
     return count;
 }
@@ -1183,7 +876,6 @@ function countHashtags(text) {
             /#[A-Za-z0-9_]+/g
         );
 
-
     return matches
         ? matches.length
         : 0;
@@ -1191,7 +883,7 @@ function countHashtags(text) {
 
 
 // ============================================================
-// VALIDATION
+// VALIDATE
 // ============================================================
 
 function validateAIResult(result) {
@@ -1208,7 +900,6 @@ function validateAIResult(result) {
         };
     }
 
-
     if (
         !Array.isArray(
             result.parts
@@ -1222,7 +913,6 @@ function validateAIResult(result) {
         };
     }
 
-
     if (
         result.parts.length < 6 ||
         result.parts.length > 10
@@ -1234,7 +924,6 @@ function validateAIResult(result) {
                 "Story must contain 6-10 parts"
         };
     }
-
 
     if (
         result.part_count !==
@@ -1248,9 +937,7 @@ function validateAIResult(result) {
         };
     }
 
-
     let fullText = "";
-
 
     for (
         let i = 0;
@@ -1261,7 +948,6 @@ function validateAIResult(result) {
         const part =
             result.parts[i];
 
-
         if (
             !part ||
             typeof part.text !==
@@ -1271,10 +957,9 @@ function validateAIResult(result) {
             return {
                 valid: false,
                 reason:
-                    `Part ${i + 1} has invalid text`
+                    `Part ${i + 1} invalid`
             };
         }
-
 
         if (
             !part.text.trim()
@@ -1283,10 +968,9 @@ function validateAIResult(result) {
             return {
                 valid: false,
                 reason:
-                    `Part ${i + 1} is empty`
+                    `Part ${i + 1} empty`
             };
         }
-
 
         fullText +=
             " " +
@@ -1317,13 +1001,13 @@ function validateAIResult(result) {
         return {
             valid: false,
             reason:
-                "Possible fabricated personal experience"
+                "Possible fabricated experience"
         };
     }
 
 
     if (
-        containsUnsupportedUsageClaim(
+        containsIndonesian(
             fullText
         )
     ) {
@@ -1331,13 +1015,13 @@ function validateAIResult(result) {
         return {
             valid: false,
             reason:
-                "Possible unsupported usage claim"
+                "Indonesian language detected"
         };
     }
 
 
     if (
-        containsBadLanguage(
+        containsAICopy(
             fullText
         )
     ) {
@@ -1345,13 +1029,13 @@ function validateAIResult(result) {
         return {
             valid: false,
             reason:
-                "Artificial language detected"
+                "AI copywriting detected"
         };
     }
 
 
     if (
-        containsGenericAIPhrase(
+        containsBadSofianLanguage(
             fullText
         )
     ) {
@@ -1359,7 +1043,21 @@ function validateAIResult(result) {
         return {
             valid: false,
             reason:
-                "Generic AI phrase detected"
+                "Artificial Sofian language detected"
+        };
+    }
+
+
+    if (
+        containsHardSell(
+            fullText
+        )
+    ) {
+
+        return {
+            valid: false,
+            reason:
+                "Hard selling detected"
         };
     }
 
@@ -1379,33 +1077,15 @@ function validateAIResult(result) {
 
 
     if (
-        containsHardSelling(
-            fullText
-        )
-    ) {
-
-        return {
-            valid: false,
-            reason:
-                "Hard selling detected"
-        };
-    }
-
-
-    const northernCount =
         countNorthernWords(
             fullText
-        );
-
-
-    if (
-        northernCount > 4
+        ) > 4
     ) {
 
         return {
             valid: false,
             reason:
-                `Northern dialect overload (${northernCount})`
+                "Too much Northern dialect"
         };
     }
 
@@ -1435,63 +1115,68 @@ function validateAIResult(result) {
 // GEMINI
 // ============================================================
 
-async function callGemini(prompt) {
+async function callGemini(
+    prompt
+) {
 
-    if (!GEMINI_API_KEY) {
+    if (
+        !GEMINI_API_KEY
+    ) {
 
         throw new Error(
             "GEMINI_API_KEY is missing"
         );
     }
 
-
     const url =
         `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-
 
     const response =
         await fetch(
             url,
             {
 
-                method: "POST",
+                method:
+                    "POST",
 
                 headers: {
                     "Content-Type":
                         "application/json"
                 },
 
-                body: JSON.stringify({
+                body:
+                    JSON.stringify({
 
-                    contents: [
+                        contents: [
 
-                        {
-                            role: "user",
+                            {
+                                role:
+                                    "user",
 
-                            parts: [
+                                parts: [
 
-                                {
-                                    text:
-                                        prompt
-                                }
+                                    {
+                                        text:
+                                            prompt
+                                    }
 
-                            ]
+                                ]
+                            }
+
+                        ],
+
+                        generationConfig: {
+
+                            temperature:
+                                0.85,
+
+                            topP:
+                                0.9,
+
+                            maxOutputTokens:
+                                1800
                         }
-
-                    ],
-
-                    generationConfig: {
-
-                        temperature:
-                            0.85,
-
-                        topP:
-                            0.9,
-
-                        maxOutputTokens:
-                            1800
-                    }
-                })
+                    })
             }
         );
 
@@ -1500,7 +1185,9 @@ async function callGemini(prompt) {
         await response.json();
 
 
-    if (!response.ok) {
+    if (
+        !response.ok
+    ) {
 
         throw new Error(
             `Gemini error ${response.status}: ` +
@@ -1532,9 +1219,13 @@ async function callGemini(prompt) {
 // OPENROUTER
 // ============================================================
 
-async function callOpenRouter(prompt) {
+async function callOpenRouter(
+    prompt
+) {
 
-    if (!OPENROUTER_API_KEY) {
+    if (
+        !OPENROUTER_API_KEY
+    ) {
 
         throw new Error(
             "OPENROUTER_API_KEY is missing"
@@ -1547,7 +1238,8 @@ async function callOpenRouter(prompt) {
             "https://openrouter.ai/api/v1/chat/completions",
             {
 
-                method: "POST",
+                method:
+                    "POST",
 
                 headers: {
 
@@ -1564,76 +1256,85 @@ async function callOpenRouter(prompt) {
                         "StoryAff AI"
                 },
 
-                body: JSON.stringify({
+                body:
+                    JSON.stringify({
 
-                    model:
-                        OPENROUTER_MODEL,
+                        model:
+                            OPENROUTER_MODEL,
 
-                    temperature:
-                        0.85,
+                        temperature:
+                            0.85,
 
-                    max_tokens:
-                        1800,
+                        max_tokens:
+                            1800,
 
-                    messages: [
+                        messages: [
 
-                        {
-                            role: "system",
+                            {
+                                role:
+                                    "system",
 
-                            content: `
-You are writing Threads stories for
-Sofian The Travelling Cat.
+                                content: `
+Write naturally.
 
-IMPORTANT:
+You are writing for Sofian The Travelling Cat.
 
-Sofian is literally a travelling CAT.
+Sofian is literally a travelling cat.
 
-He is not a human using a cat persona.
+He has human-like intelligence and speech,
+but he is not a human.
 
-He has human-like intelligence and can speak,
-but he remains a cat.
+His personality is:
 
-Do not repeatedly mention "cat".
+curious
+practical
+budget-conscious
+playful
+slightly sarcastic
 
-Do not repeatedly say "meow".
+He observes humans while travelling.
 
-Do not turn him into a cartoon.
+He likes food and comfortable places.
 
-His cat identity should influence how he
-observes the human world naturally.
+He dislikes unnecessary luggage and hassle.
 
-His voice is casual Malaysian Malay,
-with light Northern flavour.
+Do not overuse cat jokes.
 
-He is practical, curious, playful,
-budget-conscious and slightly sarcastic.
+Do not say "meow" repeatedly.
 
-Do not write like an influencer,
-reviewer or salesman.
+Do not repeatedly explain that he is a cat.
 
-Think like Sofian.
+Use natural Malaysian Malay.
+
+Do not use Indonesian vocabulary.
+
+Do not sound like an influencer,
+reviewer, salesman or product listing.
+
+The user prompt contains the full story rules.
+
+Think as Sofian.
 
 Then write naturally.
 
-Never fabricate product experience.
-
 Never invent product facts.
 
+Never invent product experience.
+
 Never generate URLs.
-
-The user prompt contains the complete story rules.
 `
-                        },
+                            },
 
-                        {
-                            role: "user",
+                            {
+                                role:
+                                    "user",
 
-                            content:
-                                prompt
-                        }
+                                content:
+                                    prompt
+                            }
 
-                    ]
-                })
+                        ]
+                    })
             }
         );
 
@@ -1642,7 +1343,9 @@ The user prompt contains the complete story rules.
         await response.json();
 
 
-    if (!response.ok) {
+    if (
+        !response.ok
+    ) {
 
         throw new Error(
             `OpenRouter error ${response.status}: ` +
@@ -1670,7 +1373,7 @@ The user prompt contains the complete story rules.
 
 
 // ============================================================
-// GENERATE
+// GENERATE STORY
 // ============================================================
 
 async function generateStory(
@@ -1680,26 +1383,21 @@ async function generateStory(
 
     const providers = [];
 
-
     if (
         GEMINI_API_KEY
     ) {
-
         providers.push(
             "gemini"
         );
     }
 
-
     if (
         OPENROUTER_API_KEY
     ) {
-
         providers.push(
             "openrouter"
         );
     }
-
 
     if (
         providers.length === 0
@@ -1782,7 +1480,7 @@ async function generateStory(
 
 
                     console.log(
-                        "[V1.9.1] Validation failed:",
+                        "[V1.9.2] Validation failed:",
                         validation.reason
                     );
 
@@ -1814,7 +1512,7 @@ async function generateStory(
 
 
                 console.error(
-                    `[V1.9.1] ${provider} attempt ${attempt} failed:`,
+                    `[V1.9.2] ${provider} attempt ${attempt} failed:`,
                     error.message
                 );
             }
@@ -1832,7 +1530,7 @@ async function generateStory(
 
 
 // ============================================================
-// AFFILIATE INJECTION
+// AFFILIATE LINK
 // ============================================================
 
 function injectAffiliateLink(
@@ -1846,19 +1544,6 @@ function injectAffiliateLink(
 
         throw new Error(
             "Affiliate URL is missing"
-        );
-    }
-
-
-    if (
-        !Array.isArray(
-            result.parts
-        ) ||
-        result.parts.length === 0
-    ) {
-
-        throw new Error(
-            "Invalid story parts"
         );
     }
 
@@ -1916,7 +1601,7 @@ app.get(
                 PERSONA,
 
             engine:
-                "Sofian V1.9.1 Cat Perspective Engine",
+                "Sofian V1.9.2 Character-First Engine",
 
             message:
                 "StoryAff AI is running."
@@ -1948,7 +1633,7 @@ app.get(
                 PERSONA,
 
             engine:
-                "Sofian V1.9.1 Cat Perspective Engine",
+                "Sofian V1.9.2 Character-First Engine",
 
             providers: {
 
@@ -2067,7 +1752,7 @@ app.post(
                     PERSONA,
 
                 character_engine:
-                    "Sofian V1.9.1 Cat Perspective Engine",
+                    "Sofian V1.9.2 Character-First Engine",
 
                 sofian_test:
                     "Wallet • Bag • Weight • Hassle • Value",
@@ -2085,7 +1770,7 @@ app.post(
         ) {
 
             console.error(
-                "[V1.9.1] /api/ai/test error:",
+                "[V1.9.2] /api/ai/test error:",
                 error
             );
 
@@ -2208,7 +1893,7 @@ app.post(
                     PERSONA,
 
                 character_engine:
-                    "Sofian V1.9.1 Cat Perspective Engine",
+                    "Sofian V1.9.2 Character-First Engine",
 
                 sofian_test:
                     "Wallet • Bag • Weight • Hassle • Value",
@@ -2226,7 +1911,7 @@ app.post(
         ) {
 
             console.error(
-                "[V1.9.1] /api/ai/generate error:",
+                "[V1.9.2] /api/ai/generate error:",
                 error
             );
 
@@ -2250,7 +1935,7 @@ app.post(
 
 
 // ============================================================
-// START SERVER
+// START
 // ============================================================
 
 app.listen(
