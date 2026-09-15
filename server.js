@@ -1,1101 +1,888 @@
 require("dotenv").config();
 
 const express = require("express");
-const cors = require("cors");
 
 const app = express();
 
-app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
-
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_MODEL =
-    process.env.OPENROUTER_MODEL || "openrouter/free";
 
-// ==========================================
-// HOME
-// ==========================================
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "openrouter/free";
+
+const VERSION = "1.4.0";
+
+/* =========================================================
+   BASIC
+========================================================= */
 
 app.get("/", (req, res) => {
-    res.json({
-        success: true,
-        app: "StoryAff AI",
-        version: "1.3.0",
-        status: "online",
-        ai: {
-            gemini: GEMINI_API_KEY ? "configured" : "not_configured",
-            openrouter: OPENROUTER_API_KEY ? "configured" : "not_configured"
-        }
-    });
+  res.json({
+    success: true,
+    app: "StoryAff AI",
+    version: VERSION,
+    status: "online"
+  });
 });
 
-// ==========================================
-// HEALTH CHECK
-// ==========================================
-
-app.get("/health", (req, res) => {
-    res.json({
-        success: true,
-        status: "healthy",
-        timestamp: new Date().toISOString()
-    });
+app.get("/api/health", (req, res) => {
+  res.json({
+    success: true,
+    version: VERSION,
+    gemini_configured: !!GEMINI_API_KEY,
+    openrouter_configured: !!OPENROUTER_API_KEY
+  });
 });
 
-// ==========================================
-// WAIT
-// ==========================================
-
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// ==========================================
-// GEMINI
-// ==========================================
-
-async function callGemini(prompt) {
-
-    if (!GEMINI_API_KEY) {
-        throw new Error("GEMINI_API_KEY is not configured.");
-    }
-
-    const url =
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-
-    const response = await fetch(url, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            systemInstruction: {
-                parts: [
-                    {
-                        text: `
-You are StoryAff AI, an expert Malaysian Threads storyteller.
+/* =========================================================
+   PERSONA
+========================================================= */
 
-Your job is NOT to write advertisements.
+const SOFIAN_PERSONA = `
+You are writing content for a fictional travel persona called:
 
-Your job is to create stories that make people stop scrolling,
-continue reading, become curious, and only then discover the product.
+SOFIAN THE TRAVELLING CAT
 
-IMPORTANT RULES:
+Sofian is a Malaysian travelling cat who loves exploring places,
+food, transport, travel gear, weird discoveries and useful things
+that make travelling easier.
 
-1. Never fabricate product facts.
-2. Never fabricate personal experiences.
-3. Never fabricate testimonials.
-4. Never claim something is popular, viral, bestselling,
-   widely used, or chosen by many people unless that information
-   is explicitly provided.
-5. Never invent prices, discounts, ratings, reviews, awards,
-   specifications, results or guarantees.
-6. Only use facts explicitly provided in PRODUCT DESCRIPTION.
-7. Never create or include URLs.
-8. The backend will insert the affiliate URL separately.
-9. Do not mention the actual affiliate URL.
-10. Return ONLY valid JSON.
+PERSONALITY:
 
-The story should feel like a Malaysian person sharing something
-interesting on Threads, NOT like a salesperson.
-`
-                    }
-                ]
-            },
+- Curious
+- Observant
+- Slightly mischievous
+- Dry sense of humour
+- Sometimes sarcastic, but never rude
+- Practical
+- Budget-conscious
+- Adventurous
+- Easily distracted by interesting things
+- Malaysian in worldview and language
+- Sounds like a real person posting on Threads
+- Does NOT sound like an influencer
+- Does NOT sound like a corporate brand
+- Does NOT sound like an advertisement
 
-            contents: [
-                {
-                    parts: [
-                        {
-                            text: prompt
-                        }
-                    ]
-                }
-            ],
+SOFIAN'S WRITING STYLE:
 
-            generationConfig: {
-                temperature: 0.9,
-                responseMimeType: "application/json"
-            }
-        })
-    });
+Use natural Malaysian Malay.
 
-    const data = await response.json();
+Casual is good.
 
-    if (!response.ok) {
+Examples of natural expressions:
 
-        const error = new Error(
-            data?.error?.message ||
-            `Gemini request failed with status ${response.status}`
-        );
+"Entah macam mana..."
+"Okay..."
+"Aku ingat..."
+"Rupanya..."
+"Masalahnya..."
+"Yang peliknya..."
+"Sampai sini..."
+"Tak plan pun sebenarnya."
+"Ini memang tak dijangka."
+"Wallet selamat. Buat masa ni."
+"Apparently..."
+"This was not the plan."
 
-        error.status = response.status;
-        error.provider = "gemini";
-        error.details = data;
+Do NOT force these phrases into every post.
 
-        throw error;
-    }
+Do NOT overuse emojis.
 
-    const aiText =
-        data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+Do NOT make every sentence funny.
 
-    if (!aiText) {
+Humour should come naturally from observation.
 
-        const error =
-            new Error("Gemini returned an empty response.");
+Sofian should feel like a travelling friend telling a story,
+not an affiliate marketer trying to close a sale.
 
-        error.status = 502;
-        error.provider = "gemini";
+IMPORTANT:
 
-        throw error;
-    }
+Sofian is a fictional persona.
 
-    return aiText;
-}
+Never claim that Sofian personally bought, used, tested,
+owned, visited or experienced a product unless the input
+explicitly provides that information.
 
-// ==========================================
-// GEMINI RETRY
-// ==========================================
+Never invent personal experiences.
 
-async function callGeminiWithRetry(prompt) {
+Never invent reviews or testimonials.
+`;
 
-    const maxAttempts = 2;
+/* =========================================================
+   STORY PROMPT
+========================================================= */
 
-    let lastError = null;
+function buildStoryPrompt({
+  productName,
+  productDescription,
+  style
+}) {
+  return `
+${SOFIAN_PERSONA}
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+You are also an expert Threads storyteller.
 
-        try {
+Your task is to create a short Threads story around the supplied product.
 
-            console.log(
-                `Gemini attempt ${attempt}/${maxAttempts}`
-            );
+The purpose is NOT to write an advertisement.
 
-            return await callGemini(prompt);
+The purpose is to make people:
 
-        } catch (error) {
+1. Stop scrolling
+2. Recognise a relatable situation
+3. Become curious
+4. Follow the story
+5. Discover the product naturally
+6. Understand why the product may be relevant
+7. Reach the final soft CTA
 
-            lastError = error;
+==================================================
+STORY STRUCTURE
+==================================================
 
-            console.log(
-                `Gemini attempt ${attempt} failed:`,
-                error.message
-            );
+Create between 6 and 10 parts.
 
-            const status = error.status;
+You decide the appropriate number.
 
-            const retryable =
-                status === 429 ||
-                status === 500 ||
-                status === 502 ||
-                status === 503 ||
-                status === 504;
+Do NOT mechanically follow the same structure every time.
 
-            if (!retryable || attempt === maxAttempts) {
-                break;
-            }
+A strong story usually contains:
 
-            await sleep(1500);
-        }
-    }
+- HOOK
+- CONTEXT
+- PROBLEM / OBSERVATION
+- ESCALATION OR CURIOSITY
+- DISCOVERY
+- PRODUCT CONNECTION
+- CONCLUSION
+- SOFT CTA
 
-    throw lastError;
-}
+The product should NOT automatically be revealed at Part 5.
 
-// ==========================================
-// OPENROUTER
-// ==========================================
+Choose the reveal point naturally.
 
-async function callOpenRouter(prompt) {
+The first few parts should work as a story even before
+the reader knows what product is being discussed.
 
-    if (!OPENROUTER_API_KEY) {
+==================================================
+HOOK
+==================================================
 
-        const error =
-            new Error("OPENROUTER_API_KEY is not configured.");
+Part 1 must create curiosity.
 
-        error.status = 500;
-        error.provider = "openrouter";
+Avoid generic openings such as:
 
-        throw error;
-    }
+"Travel memang seronok..."
+"Ramai orang suka melancong..."
+"Kalau korang suka travel..."
+"Jom kita tengok..."
+"Hari ni aku nak share..."
 
-    const response = await fetch(
-        "https://openrouter.ai/api/v1/chat/completions",
-        {
-            method: "POST",
+Instead, begin with:
 
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization":
-                    `Bearer ${OPENROUTER_API_KEY}`,
-                "HTTP-Referer":
-                    "https://storyaff-ai.onrender.com",
-                "X-Title":
-                    "StoryAff AI"
-            },
+- an observation
+- an unexpected problem
+- a funny situation
+- a contradiction
+- a small travel disaster
+- an oddly specific situation
 
-            body: JSON.stringify({
-                model: OPENROUTER_MODEL,
+The reader should feel:
 
-                messages: [
-                    {
-                        role: "system",
-                        content: `
-You are StoryAff AI, an expert Malaysian Threads storyteller.
+"Eh, aku pernah kena."
 
-Your job is NOT to write advertisements.
+or:
 
-Your job is to create stories that make people stop scrolling,
-continue reading, become curious, and only then discover the product.
+"Kenapa benda ni betul?"
 
-Never fabricate product facts.
+or:
 
-Never fabricate personal experiences.
+"Okay, what happened next?"
 
-Never fabricate testimonials.
+==================================================
+STORYTELLING
+==================================================
 
-Never claim something is popular, viral, bestselling,
-widely used, or chosen by many people unless explicitly provided.
+Do not make every part a standalone advertisement sentence.
 
-Never invent prices, discounts, ratings, reviews, awards,
-specifications, results or guarantees.
+Each part should naturally lead to the next.
 
-Only use facts explicitly provided in PRODUCT DESCRIPTION.
-
-Never create or include URLs.
-
-The backend will insert the affiliate URL separately.
-
-Return ONLY valid JSON.
-`
-                    },
-
-                    {
-                        role: "user",
-                        content: prompt
-                    }
-                ],
-
-                temperature: 0.9
-            })
-        }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-
-        const error = new Error(
-            data?.error?.message ||
-            `OpenRouter request failed with status ${response.status}`
-        );
-
-        error.status = response.status;
-        error.provider = "openrouter";
-        error.details = data;
-
-        throw error;
-    }
-
-    const aiText =
-        data?.choices?.[0]?.message?.content || "";
-
-    if (!aiText) {
-
-        const error =
-            new Error("OpenRouter returned an empty response.");
-
-        error.status = 502;
-        error.provider = "openrouter";
-
-        throw error;
-    }
-
-    return aiText;
-}
-
-// ==========================================
-// AI TEST
-// ==========================================
-
-app.get("/api/ai/test", async (req, res) => {
-
-    if (!GEMINI_API_KEY) {
-
-        return res.status(500).json({
-            success: false,
-            error:
-                "GEMINI_API_KEY is not configured in Render."
-        });
-    }
-
-    try {
-
-        const url =
-            `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-
-        const response = await fetch(url, {
-            method: "POST",
-
-            headers: {
-                "Content-Type": "application/json"
-            },
-
-            body: JSON.stringify({
-                contents: [
-                    {
-                        parts: [
-                            {
-                                text:
-                                    "Reply with exactly: StoryAff AI Gemini connection successful."
-                            }
-                        ]
-                    }
-                ]
-            })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-
-            return res.status(response.status).json({
-                success: false,
-                error: "Gemini API error",
-                details: data
-            });
-        }
-
-        const aiText =
-            data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-        return res.json({
-            success: true,
-            message:
-                "Gemini AI is connected successfully.",
-            model: GEMINI_MODEL,
-            response: aiText
-        });
-
-    } catch (error) {
-
-        return res.status(500).json({
-            success: false,
-            error:
-                "Failed to connect to Gemini.",
-            details: error.message
-        });
-    }
-});
-
-// ==========================================
-// STORY GENERATOR
-// ==========================================
-
-app.post("/api/ai/generate", async (req, res) => {
-
-    if (!GEMINI_API_KEY && !OPENROUTER_API_KEY) {
-
-        return res.status(500).json({
-            success: false,
-            error:
-                "No AI provider is configured."
-        });
-    }
-
-    try {
-
-        const {
-            product_name,
-            product_description,
-            affiliate_url,
-            style = "personal_story"
-        } = req.body;
-
-        // ==========================================
-        // INPUT VALIDATION
-        // ==========================================
-
-        if (!product_name) {
-
-            return res.status(400).json({
-                success: false,
-                error:
-                    "product_name is required."
-            });
-        }
-
-        if (!affiliate_url) {
-
-            return res.status(400).json({
-                success: false,
-                error:
-                    "affiliate_url is required."
-            });
-        }
-
-        // ==========================================
-        // STORY PROMPT
-        // ==========================================
-
-        const prompt = `
-You are creating a Malaysian Threads storytelling post.
-
-PRODUCT NAME:
-${product_name}
-
-PRODUCT DESCRIPTION:
-${product_description || "No additional description provided."}
-
-STORY STYLE:
-${style}
-
-==========================================
-MAIN OBJECTIVE
-==========================================
-
-Create a story that feels natural enough that someone would
-actually stop and read it on Threads.
-
-This is NOT a product advertisement.
-
-The product should feel like the answer to a story,
-not the reason the story exists.
-
-==========================================
-STORY LENGTH
-==========================================
-
-Minimum: 6 parts
-Maximum: 10 parts
-
-You decide the correct number.
-
-Do not force 10 parts.
-
-Use 6 if the story is complete in 6.
-
-Use 7-10 only when additional storytelling genuinely helps.
-
-==========================================
-STORY ARC
-==========================================
-
-Use this general structure:
-
-PART 1 — HOOK
-
-Start with something that creates curiosity.
-
-Good examples of hook types:
-
-- annoying travel problem
-- unexpected observation
-- relatable frustration
-- surprising realization
-- "baru sedar" moment
-- question that makes people think
-- small problem that becomes bigger
-
-Do NOT start like an advertisement.
-
-Do NOT mention the product immediately unless it is genuinely
-necessary for the hook.
-
-------------------------------------------
-
-PART 2 — CONTEXT
-
-Explain what happened.
-
-Make the situation relatable.
-
-------------------------------------------
-
-PART 3 — PROBLEM
-
-Show why the situation is annoying, inconvenient,
-interesting or worth solving.
-
-------------------------------------------
-
-PART 4 — CURIOSITY
-
-Build anticipation.
-
-Make the reader want to know what solution was discovered.
-
-Do not reveal the product too early.
-
-------------------------------------------
-
-PART 5 — DISCOVERY / REVEAL
-
-Introduce the product naturally.
-
-The reveal should feel like:
-
-"Oh, rupanya benda ni yang dia jumpa."
-
-Not:
-
-"BUY THIS PRODUCT NOW."
-
-------------------------------------------
-
-PART 6+
-
-Explain only the relevant product facts provided
-in PRODUCT DESCRIPTION.
-
-Connect those facts to the original problem.
-
-Do not invent benefits beyond the provided facts.
-
-------------------------------------------
-
-FINAL PART
-
-Close the story naturally.
-
-Use a soft CTA.
-
-Include the affiliate disclosure wording:
-
-(Pautan afiliat)
-
-DO NOT include the affiliate URL.
-
-The backend will insert the exact URL.
-
-==========================================
-IMPORTANT WRITING RULE
-==========================================
-
-Never make unsupported claims such as:
-
-"ramai orang guna"
-
-"viral"
-
-"best seller"
-
-"everyone is buying"
-
-"pilihan ramai"
-
-"benda ni tengah trending"
-
-"confirm berbaloi"
-
-unless those facts are explicitly present in PRODUCT DESCRIPTION.
-
-Instead, describe only what is actually known.
-
-==========================================
-NATURAL MALAYSIAN STYLE
-==========================================
-
-Use casual Malaysian Malay.
-
-Natural words are allowed:
-
-- korang
-- memang
-- sebenarnya
-- rupanya
-- leceh
-- benda ni
-- nak
-- tak
-- je
-- bila
-- sebab tu
-
-But do not overuse slang.
-
-Avoid corporate copywriting.
-
-Avoid excessive emojis.
-
-Avoid fake enthusiasm.
-
-Avoid repetitive sentence structures.
+Use short and medium sentences.
 
 Vary sentence length.
 
-Make the story feel written by a real person.
+Occasionally use a very short sentence for emphasis.
 
-==========================================
-NO FAKE EXPERIENCE
-==========================================
+Example:
+
+"Aku ingat dah settle.
+
+Rupanya belum."
+
+Use paragraphs naturally.
+
+Do not over-explain.
+
+==================================================
+PRODUCT REVEAL
+==================================================
+
+The product should feel discovered rather than announced.
+
+BAD:
+
+"Peralatan yang dimaksudkan ialah DJI Osmo Pocket 3."
+
+BETTER:
+
+"Kat situ baru aku faham kenapa kamera kecil macam ni wujud."
+
+Then reveal the product naturally.
+
+Do not use dramatic fake hype.
+
+==================================================
+PRODUCT FACTS
+==================================================
+
+Only use information explicitly supplied in:
+
+PRODUCT NAME
+PRODUCT DESCRIPTION
+
+Do not invent specifications.
+
+Do not invent prices.
+
+Do not invent discounts.
+
+Do not invent ratings.
+
+Do not invent sales numbers.
+
+Do not invent popularity.
 
 Do not say:
 
+"ramai guna"
+"viral"
+"best seller"
+"pilihan ramai"
+"paling popular"
+"everyone is buying this"
+
+unless those facts are explicitly provided.
+
+==================================================
+PERSONAL EXPERIENCE
+==================================================
+
+Never write:
+
 "Aku dah guna..."
+"Aku cuba..."
+"Aku beli..."
+"Aku pakai..."
+"Pengalaman aku..."
 
-"Semalam aku test..."
+unless the input explicitly states that Sofian personally
+did those things.
 
-"Aku memang suka..."
+The persona is fictional.
 
-unless that experience was explicitly provided.
+Do not fake first-hand experience.
 
-The writer is NOT allowed to pretend they personally used the product.
+==================================================
+SELLING STYLE
+==================================================
 
-==========================================
-NO URL
-==========================================
+Avoid hard selling.
 
-DO NOT create any URL.
+Do NOT use:
 
-DO NOT include:
+"WAJIB BELI"
+"JANGAN LEPAS"
+"GRAB SEKARANG"
+"BUY NOW"
+"CONFIRM BERBALOI"
+"MEMANG TERBAIK"
 
-https://
+Use a soft ending instead.
 
-www.
+Examples:
 
-Shopee links
+"Kalau benda macam ni memang tengah kau cari, boleh tengok detail."
 
-affiliate links
+"Kalau curious, aku letak link dekat bawah."
 
-or any other URL.
+"Kalau nak tengok sendiri, link aku letak kat bawah."
 
-==========================================
+==================================================
+AFFILIATE LINK
+==================================================
+
+NEVER generate any URL.
+
+NEVER generate an affiliate link.
+
+NEVER modify a URL.
+
+NEVER put a URL in the response.
+
+The backend will insert the affiliate link later.
+
+==================================================
+DISCLOSURE
+==================================================
+
+The final part will contain:
+
+(Pautan afiliat)
+
+Do not write another affiliate disclosure elsewhere.
+
+==================================================
 HASHTAGS
-==========================================
+==================================================
 
-Generate maximum 5 relevant hashtags.
+Generate a maximum of 5 relevant hashtags.
 
-Avoid generic spam hashtags.
+Avoid generic spammy hashtag lists.
 
-==========================================
-OUTPUT
-==========================================
+Prefer specific relevant hashtags.
+
+==================================================
+OUTPUT FORMAT
+==================================================
 
 Return ONLY valid JSON.
 
-Use exactly:
+Do not use markdown.
+
+Do not wrap JSON in code fences.
+
+Use exactly this structure:
 
 {
-  "style": "",
-  "part_count": 0,
+  "style": "travel_story",
+  "part_count": 7,
   "parts": [
     {
       "part": 1,
-      "text": ""
+      "text": "..."
     }
   ],
-  "final_cta": "",
-  "affiliate_disclosure": "",
-  "hashtags": []
+  "final_cta": "...",
+  "affiliate_disclosure": "(Pautan afiliat)",
+  "hashtags": [
+    "#..."
+  ]
 }
 
-Do not include full_thread.
+==================================================
+INPUT
+==================================================
 
-The backend will create full_thread.
+Product name:
+${productName}
 
-Do not include the affiliate URL.
+Product description:
+${productDescription}
+
+Requested style:
+${style || "travel_story"}
+`;
+}
+
+/* =========================================================
+   GEMINI
+========================================================= */
+
+async function callGemini(prompt) {
+  if (!GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is not configured");
+  }
+
+  const url =
+    `https://generativelanguage.googleapis.com/v1beta/models/` +
+    `${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      system_instruction: {
+        parts: [
+          {
+            text: SOFIAN_PERSONA
+          }
+        ]
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: prompt
+            }
+          ]
+        }
+      ],
+      generationConfig: {
+        temperature: 0.9,
+        responseMimeType: "application/json"
+      }
+    })
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const errorMessage =
+      data?.error?.message ||
+      `Gemini request failed with status ${response.status}`;
+
+    const error = new Error(errorMessage);
+    error.status = response.status;
+
+    throw error;
+  }
+
+  const text =
+    data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+  if (!text) {
+    throw new Error("Gemini returned an empty response");
+  }
+
+  return text;
+}
+
+/* =========================================================
+   OPENROUTER
+========================================================= */
+
+async function callOpenRouter(prompt) {
+  if (!OPENROUTER_API_KEY) {
+    throw new Error("OPENROUTER_API_KEY is not configured");
+  }
+
+  const response = await fetch(
+    "https://openrouter.ai/api/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": "https://storyaff-ai.onrender.com",
+        "X-Title": "StoryAff AI"
+      },
+      body: JSON.stringify({
+        model: OPENROUTER_MODEL,
+        temperature: 0.9,
+        messages: [
+          {
+            role: "system",
+            content: SOFIAN_PERSONA
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ]
+      })
+    }
+  );
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const errorMessage =
+      data?.error?.message ||
+      `OpenRouter request failed with status ${response.status}`;
+
+    const error = new Error(errorMessage);
+    error.status = response.status;
+
+    throw error;
+  }
+
+  const text =
+    data?.choices?.[0]?.message?.content;
+
+  if (!text) {
+    throw new Error("OpenRouter returned an empty response");
+  }
+
+  return text;
+}
+
+/* =========================================================
+   JSON CLEANER
+========================================================= */
+
+function cleanJsonText(text) {
+  if (!text) {
+    throw new Error("AI response is empty");
+  }
+
+  let cleaned = text.trim();
+
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+  }
+
+  return cleaned;
+}
+
+function parseAIResponse(text) {
+  const cleaned = cleanJsonText(text);
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (error) {
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
+
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      const possibleJson =
+        cleaned.substring(firstBrace, lastBrace + 1);
+
+      return JSON.parse(possibleJson);
+    }
+
+    throw new Error("AI returned invalid JSON");
+  }
+}
+
+/* =========================================================
+   SECURITY
+========================================================= */
+
+function containsUrl(text) {
+  if (!text) return false;
+
+  const urlPattern =
+    /(https?:\/\/|www\.|s\.shopee\.com|shopee\.com|t\.me\/|bit\.ly\/)/i;
+
+  return urlPattern.test(text);
+}
+
+function validateAIOutput(data) {
+  if (!data || typeof data !== "object") {
+    throw new Error("AI output is not an object");
+  }
+
+  if (!Array.isArray(data.parts)) {
+    throw new Error("AI output does not contain parts");
+  }
+
+  if (data.parts.length < 6 || data.parts.length > 10) {
+    throw new Error(
+      `Invalid part count: ${data.parts.length}. Must be 6-10.`
+    );
+  }
+
+  for (const part of data.parts) {
+    if (
+      !part ||
+      typeof part.part !== "number" ||
+      typeof part.text !== "string"
+    ) {
+      throw new Error("Invalid story part structure");
+    }
+
+    if (containsUrl(part.text)) {
+      throw new Error(
+        "AI generated a URL. Request rejected for affiliate-link security."
+      );
+    }
+  }
+
+  if (data.final_cta && containsUrl(data.final_cta)) {
+    throw new Error(
+      "AI generated a URL inside final_cta."
+    );
+  }
+
+  if (
+    data.affiliate_disclosure &&
+    containsUrl(data.affiliate_disclosure)
+  ) {
+    throw new Error(
+      "AI generated a URL inside affiliate_disclosure."
+    );
+  }
+
+  return true;
+}
+
+/* =========================================================
+   FINAL THREAD BUILDER
+========================================================= */
+
+function buildFinalThread(data, affiliateUrl) {
+  const parts = [...data.parts];
+
+  const finalIndex = parts.length - 1;
+
+  const finalText =
+    parts[finalIndex].text.trim();
+
+  const disclosure =
+    data.affiliate_disclosure ||
+    "(Pautan afiliat)";
+
+  parts[finalIndex].text =
+    `${finalText}\n\n👉 ${affiliateUrl}\n${disclosure}`;
+
+  const fullThread =
+    parts
+      .map(part => part.text.trim())
+      .join("\n\n");
+
+  return {
+    parts,
+    full_thread: fullThread
+  };
+}
+
+/* =========================================================
+   HASHTAG CLEANER
+========================================================= */
+
+function cleanHashtags(hashtags) {
+  if (!Array.isArray(hashtags)) {
+    return [];
+  }
+
+  return hashtags
+    .filter(item => typeof item === "string")
+    .map(item => item.trim())
+    .filter(item => item.startsWith("#"))
+    .slice(0, 5);
+}
+
+/* =========================================================
+   AI GENERATION
+========================================================= */
+
+async function generateWithFallback(prompt) {
+  let geminiError = null;
+
+  if (GEMINI_API_KEY) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const result = await callGemini(prompt);
+
+        return {
+          provider: "gemini",
+          model: GEMINI_MODEL,
+          raw: result
+        };
+      } catch (error) {
+        geminiError = error;
+
+        const status = error.status;
+
+        const retryable =
+          status === 429 ||
+          status === 500 ||
+          status === 502 ||
+          status === 503 ||
+          status === 504;
+
+        if (!retryable || attempt === 2) {
+          break;
+        }
+
+        await new Promise(resolve =>
+          setTimeout(resolve, 1200)
+        );
+      }
+    }
+  }
+
+  if (OPENROUTER_API_KEY) {
+    try {
+      const result = await callOpenRouter(prompt);
+
+      return {
+        provider: "openrouter",
+        model: OPENROUTER_MODEL,
+        raw: result
+      };
+    } catch (openRouterError) {
+      throw new Error(
+        `Gemini failed: ${
+          geminiError?.message || "unknown error"
+        }. OpenRouter failed: ${
+          openRouterError?.message || "unknown error"
+        }`
+      );
+    }
+  }
+
+  throw geminiError ||
+    new Error("No AI provider is configured");
+}
+
+/* =========================================================
+   GENERATE ENDPOINT
+========================================================= */
+
+app.post("/api/ai/generate", async (req, res) => {
+  try {
+    const {
+      product_name,
+      product_description,
+      affiliate_url,
+      style
+    } = req.body;
+
+    if (!product_name) {
+      return res.status(400).json({
+        success: false,
+        error: "product_name is required"
+      });
+    }
+
+    if (!product_description) {
+      return res.status(400).json({
+        success: false,
+        error: "product_description is required"
+      });
+    }
+
+    if (!affiliate_url) {
+      return res.status(400).json({
+        success: false,
+        error: "affiliate_url is required"
+      });
+    }
+
+    /*
+      IMPORTANT:
+      Affiliate URL is never sent to AI.
+    */
+
+    const prompt = buildStoryPrompt({
+      productName: product_name,
+      productDescription: product_description,
+      style: style || "travel_story"
+    });
+
+    const aiResult =
+      await generateWithFallback(prompt);
+
+    const parsed =
+      parseAIResponse(aiResult.raw);
+
+    validateAIOutput(parsed);
+
+    const finalResult =
+      buildFinalThread(parsed, affiliate_url);
+
+    const hashtags =
+      cleanHashtags(parsed.hashtags);
+
+    const finalCta =
+      parsed.final_cta ||
+      `Kalau nak tengok detail ${product_name}, boleh semak dekat bawah.`;
+
+    return res.json({
+      success: true,
+      provider: aiResult.provider,
+      model: aiResult.model,
+      version: VERSION,
+      persona: "Sofian The Travelling Cat",
+      data: {
+        style: parsed.style || "travel_story",
+        part_count: finalResult.parts.length,
+        parts: finalResult.parts,
+        final_cta: finalCta,
+        affiliate_disclosure:
+          parsed.affiliate_disclosure ||
+          "(Pautan afiliat)",
+        hashtags,
+        full_thread:
+          finalResult.full_thread
+      }
+    });
+
+  } catch (error) {
+    console.error("Generate error:", error);
+
+    return res.status(500).json({
+      success: false,
+      version: VERSION,
+      error: error.message
+    });
+  }
+});
+
+/* =========================================================
+   GEMINI TEST
+========================================================= */
+
+app.post("/api/ai/test", async (req, res) => {
+  try {
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({
+        success: false,
+        error: "GEMINI_API_KEY is not configured"
+      });
+    }
+
+    const prompt = `
+Return ONLY this JSON:
+
+{
+  "message": "StoryAff AI Gemini connection successful."
+}
+
+Do not add markdown.
 `;
 
-        // ==========================================
-        // AI PROVIDER
-        // ==========================================
-
-        let aiText = "";
-        let providerUsed = "";
-
-        // Gemini first
-
-        if (GEMINI_API_KEY) {
-
-            try {
-
-                aiText =
-                    await callGeminiWithRetry(prompt);
-
-                providerUsed = "gemini";
-
-            } catch (geminiError) {
-
-                console.log(
-                    "Gemini failed. Falling back to OpenRouter."
-                );
-
-                console.log(
-                    geminiError.message
-                );
-            }
-        }
-
-        // OpenRouter fallback
-
-        if (!aiText && OPENROUTER_API_KEY) {
-
-            try {
-
-                aiText =
-                    await callOpenRouter(prompt);
-
-                providerUsed = "openrouter";
-
-            } catch (openRouterError) {
-
-                return res.status(502).json({
-                    success: false,
-                    error:
-                        "Both AI providers failed.",
-                    details:
-                        openRouterError.message
-                });
-            }
-        }
-
-        if (!aiText) {
-
-            return res.status(502).json({
-                success: false,
-                error:
-                    "AI generation failed."
-            });
-        }
-
-        // ==========================================
-        // PARSE JSON
-        // ==========================================
-
-        let result;
-
-        try {
-
-            result =
-                JSON.parse(aiText);
-
-        } catch (parseError) {
-
-            return res.status(500).json({
-                success: false,
-                error:
-                    "AI returned invalid JSON.",
-                provider:
-                    providerUsed,
-                raw_response:
-                    aiText
-            });
-        }
-
-        // ==========================================
-        // PART VALIDATION
-        // ==========================================
-
-        if (
-            !result.parts ||
-            !Array.isArray(result.parts)
-        ) {
-
-            return res.status(500).json({
-                success: false,
-                error:
-                    "AI response does not contain valid parts."
-            });
-        }
-
-        const partCount =
-            result.parts.length;
-
-        if (
-            partCount < 6 ||
-            partCount > 10
-        ) {
-
-            return res.status(500).json({
-                success: false,
-                error:
-                    "AI generated an invalid number of parts.",
-                part_count:
-                    partCount
-            });
-        }
-
-        // ==========================================
-        // URL SECURITY
-        // ==========================================
-
-        const urlPattern =
-            /(https?:\/\/|www\.|s\.shopee\.com|shopee\.com)/i;
-
-        for (const part of result.parts) {
-
-            if (
-                part.text &&
-                urlPattern.test(part.text)
-            ) {
-
-                return res.status(500).json({
-                    success: false,
-                    error:
-                        "Security check failed: AI generated a URL."
-                });
-            }
-        }
-
-        // ==========================================
-        // FINAL PART
-        // ==========================================
-
-        const finalPartIndex =
-            result.parts.length - 1;
-
-        let finalPart =
-            result.parts[finalPartIndex].text || "";
-
-        finalPart =
-            finalPart
-                .replace(
-                    /\(Pautan afiliat\)/gi,
-                    ""
-                )
-                .trim();
-
-        finalPart =
-            `${finalPart}\n\n👉 ${affiliate_url}\n(Pautan afiliat)`;
-
-        result.parts[finalPartIndex].text =
-            finalPart;
-
-        // ==========================================
-        // CTA
-        // ==========================================
-
-        if (!result.final_cta) {
-
-            result.final_cta =
-                "Kalau nak tengok detail, boleh check link di bawah.";
-        }
-
-        if (!result.affiliate_disclosure) {
-
-            result.affiliate_disclosure =
-                "(Pautan afiliat)";
-        }
-
-        // ==========================================
-        // HASHTAGS
-        // ==========================================
-
-        if (
-            !Array.isArray(result.hashtags)
-        ) {
-
-            result.hashtags = [];
-        }
-
-        result.hashtags =
-            result.hashtags.slice(0, 5);
-
-        // ==========================================
-        // FULL THREAD
-        // ==========================================
-
-        result.full_thread =
-            result.parts
-                .map(part => part.text)
-                .join("\n\n");
-
-        result.part_count =
-            partCount;
-
-        // ==========================================
-        // FINAL URL SECURITY
-        // ==========================================
-
-        for (
-            let i = 0;
-            i < result.parts.length - 1;
-            i++
-        ) {
-
-            if (
-                result.parts[i].text &&
-                result.parts[i].text.includes(
-                    affiliate_url
-                )
-            ) {
-
-                return res.status(500).json({
-                    success: false,
-                    error:
-                        "Security check failed: affiliate URL appeared before final part."
-                });
-            }
-        }
-
-        if (
-            !result.parts[finalPartIndex].text.includes(
-                affiliate_url
-            )
-        ) {
-
-            return res.status(500).json({
-                success: false,
-                error:
-                    "Security check failed: exact affiliate URL missing."
-            });
-        }
-
-        // ==========================================
-        // SUCCESS
-        // ==========================================
-
-        return res.json({
-            success: true,
-
-            provider:
-                providerUsed,
-
-            model:
-                providerUsed === "gemini"
-                    ? GEMINI_MODEL
-                    : OPENROUTER_MODEL,
-
-            data:
-                result
-        });
-
-    } catch (error) {
-
-        return res.status(500).json({
-            success: false,
-            error:
-                "AI generation failed.",
-            details:
-                error.message
-        });
-    }
-});
-
-// ==========================================
-// STORY STYLES
-// ==========================================
-
-app.get("/api/ai/styles", (req, res) => {
-
-    res.json({
-        success: true,
-
-        styles: [
-            {
-                id: "personal_story",
-                name: "Personal Story"
-            },
-            {
-                id: "problem_solution",
-                name: "Problem → Solution"
-            },
-            {
-                id: "curiosity",
-                name: "Curiosity"
-            },
-            {
-                id: "funny",
-                name: "Funny"
-            },
-            {
-                id: "discovery",
-                name: "Discovery"
-            },
-            {
-                id: "baru_tahu",
-                name: "Baru Tahu"
-            },
-            {
-                id: "travel_story",
-                name: "Travel Story"
-            },
-            {
-                id: "comparison",
-                name: "Comparison"
-            },
-            {
-                id: "mini_review",
-                name: "Mini Review"
-            },
-            {
-                id: "soft_sell",
-                name: "Soft Sell"
-            }
-        ]
+    const result =
+      await callGemini(prompt);
+
+    const parsed =
+      parseAIResponse(result);
+
+    return res.json({
+      success: true,
+      message: parsed.message,
+      model: GEMINI_MODEL,
+      version: VERSION
     });
-});
 
-// ==========================================
-// THREADS STATUS
-// ==========================================
-
-app.get("/api/threads/status", (req, res) => {
-
-    res.json({
-        success: true,
-        status: "not_connected",
-        message:
-            "Threads API will be connected in the next stage."
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      version: VERSION
     });
+  }
 });
 
-// ==========================================
-// PRODUCTS
-// ==========================================
-
-app.get("/api/products", (req, res) => {
-
-    res.json({
-        success: true,
-        products: [],
-        message:
-            "Shopee affiliate product engine will be connected in the next stage."
-    });
-});
-
-// ==========================================
-// START SERVER
-// ==========================================
+/* =========================================================
+   SERVER
+========================================================= */
 
 app.listen(PORT, () => {
-
-    console.log("=================================");
-    console.log("       STORYAFF AI BACKEND");
-    console.log("=================================");
-
-    console.log(
-        "Server running on port " + PORT
-    );
-
-    console.log(
-        "Gemini model: " + GEMINI_MODEL
-    );
-
-    console.log(
-        "OpenRouter model: " + OPENROUTER_MODEL
-    );
-
-    console.log(
-        "Gemini API key: " +
-        (
-            GEMINI_API_KEY
-                ? "CONFIGURED"
-                : "NOT CONFIGURED"
-        )
-    );
-
-    console.log(
-        "OpenRouter API key: " +
-        (
-            OPENROUTER_API_KEY
-                ? "CONFIGURED"
-                : "NOT CONFIGURED"
-        )
-    );
+  console.log(
+    `StoryAff AI v${VERSION} running on port ${PORT}`
+  );
 });
