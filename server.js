@@ -3,11 +3,12 @@ require("dotenv").config();
 const express = require("express");
 
 const app = express();
+
 app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
-const VERSION = "1.9.9";
+const VERSION = "1.9.10";
 
 // ============================================================
 // API KEYS
@@ -16,21 +17,24 @@ const VERSION = "1.9.9";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
 // ============================================================
 // MODELS
 // ============================================================
 
 const GEMINI_MODEL = "gemini-3.6-flash";
+
 const OPENROUTER_MODEL = "openrouter/free";
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-5.6-luna";
+
+const OPENAI_MODEL =
+    process.env.OPENAI_MODEL || "gpt-5.6-luna";
+
+const GROQ_MODEL =
+    process.env.GROQ_MODEL || "openai/gpt-oss-20b";
 
 // ============================================================
 // AFFILIATE URL
-// IMPORTANT:
-// AI NEVER SEES THIS URL.
-// AI NEVER GENERATES THIS URL.
-// BACKEND INJECTS IT ONLY AT THE END.
 // ============================================================
 
 const DEFAULT_AFFILIATE_URL =
@@ -46,13 +50,16 @@ SOFIAN THE TRAVELLING CAT
 Sofian is literally a CAT.
 
 He is not a human influencer pretending to be a cat.
+
 He is not a human traveller with a cat name.
+
 He is a travelling cat with human-like intelligence,
 thoughts, opinions and humour.
 
 His cat identity must naturally exist inside his worldview.
 
 He notices things a cat might naturally notice:
+
 - smells
 - food
 - quiet places
@@ -84,16 +91,23 @@ VOICE:
 Natural Malaysian Malay.
 
 Casual.
+
 Conversational.
+
 Slightly sarcastic.
+
 Observational.
+
 Playful.
+
 Street-smart.
+
 Budget-conscious.
 
 Use light Northern Malaysian flavour naturally.
 
 Words such as:
+
 hang
 pi
 mai
@@ -113,9 +127,13 @@ may appear occasionally.
 DO NOT force these words into every paragraph.
 
 The voice should feel like a Malaysian friend talking naturally,
+
 not an influencer,
+
 not a salesman,
+
 not corporate copy,
+
 not an AI essay.
 
 Use simple sentences.
@@ -137,9 +155,10 @@ Avoid phrases such as:
 
 Do not sound like an advertisement.
 
-DO NOT use Indonesian-style wording.
+Avoid Indonesian-style wording.
 
 Avoid:
+
 nggak
 enggak
 banget
@@ -148,15 +167,16 @@ gue
 gua
 kamu
 anda
-bisa
+aku banget
+ngapain
 rekam
 traveling
 pakai
-saja when "ja" is more natural
+bisa
 `;
 
 // ============================================================
-// STORY DNA
+// STORY RULES
 // ============================================================
 
 const STORY_RULES = `
@@ -184,6 +204,7 @@ a natural chain of thoughts.
 The product should NOT appear immediately unless the story naturally needs it.
 
 Do not begin with:
+
 "Ini produk..."
 "Kalau hang cari..."
 "Jom tengok..."
@@ -206,6 +227,7 @@ You may ONLY use product information supplied by the backend
 through PRODUCT FACT placeholders.
 
 Never invent:
+
 - price
 - discount
 - promotion
@@ -274,8 +296,6 @@ No numbering.
 
 Separate each story part with a blank line.
 
-The backend will decide the final numbering.
-
 Create 6 to 10 natural story parts.
 
 Use these placeholders exactly:
@@ -318,6 +338,7 @@ Do not create fake personal experience.
 // ============================================================
 
 function buildPrompt(productDescription) {
+
     return `
 You are writing a Threads story for a character called
 Sofian The Travelling Cat.
@@ -349,6 +370,7 @@ The backend will insert exact product facts.
 Your job is ONLY to create the storytelling shell.
 
 Think about:
+
 - travel
 - money
 - bag space
@@ -385,11 +407,14 @@ Return ONLY the story.
 }
 
 // ============================================================
-// TEXT CLEANING
+// CLEAN AI TEXT
 // ============================================================
 
 function cleanAIText(text) {
-    if (!text) return "";
+
+    if (!text) {
+        return "";
+    }
 
     let cleaned = String(text);
 
@@ -407,8 +432,11 @@ function cleanAIText(text) {
 // ============================================================
 
 async function callGemini(prompt) {
+
     if (!GEMINI_API_KEY) {
-        throw new Error("GEMINI_API_KEY is not configured");
+        throw new Error(
+            "GEMINI_API_KEY is not configured"
+        );
     }
 
     const url =
@@ -416,11 +444,15 @@ async function callGemini(prompt) {
         `${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
     const response = await fetch(url, {
+
         method: "POST",
+
         headers: {
             "Content-Type": "application/json"
         },
+
         body: JSON.stringify({
+
             contents: [
                 {
                     parts: [
@@ -430,20 +462,25 @@ async function callGemini(prompt) {
                     ]
                 }
             ],
+
             generationConfig: {
                 temperature: 0.85,
                 maxOutputTokens: 1800
             }
+
         })
+
     });
 
     const data = await response.json();
 
     if (!response.ok) {
+
         throw new Error(
             data?.error?.message ||
             `Gemini HTTP ${response.status}`
         );
+
     }
 
     const text =
@@ -453,7 +490,9 @@ async function callGemini(prompt) {
             .trim();
 
     if (!text) {
-        throw new Error("Gemini returned empty response");
+        throw new Error(
+            "Gemini returned empty response"
+        );
     }
 
     return text;
@@ -464,48 +503,71 @@ async function callGemini(prompt) {
 // ============================================================
 
 async function callOpenRouter(prompt) {
+
     if (!OPENROUTER_API_KEY) {
-        throw new Error("OPENROUTER_API_KEY is not configured");
+        throw new Error(
+            "OPENROUTER_API_KEY is not configured"
+        );
     }
 
     const response = await fetch(
         "https://openrouter.ai/api/v1/chat/completions",
         {
+
             method: "POST",
+
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                "HTTP-Referer": "https://storyaff-ai.onrender.com",
-                "X-Title": "StoryAff AI"
+                "Authorization":
+                    `Bearer ${OPENROUTER_API_KEY}`,
+
+                "HTTP-Referer":
+                    "https://storyaff-ai.onrender.com",
+
+                "X-Title":
+                    "StoryAff AI"
             },
+
             body: JSON.stringify({
+
                 model: OPENROUTER_MODEL,
+
                 messages: [
                     {
                         role: "user",
                         content: prompt
                     }
                 ],
+
                 temperature: 0.85,
+
                 max_tokens: 1800
+
             })
+
         }
     );
 
     const data = await response.json();
 
     if (!response.ok) {
+
         throw new Error(
             data?.error?.message ||
             `OpenRouter HTTP ${response.status}`
         );
+
     }
 
     const text =
         data?.choices?.[0]?.message?.content;
 
     if (!text) {
-        throw new Error("OpenRouter returned empty response");
+
+        throw new Error(
+            "OpenRouter returned empty response"
+        );
+
     }
 
     return text.trim();
@@ -516,23 +578,36 @@ async function callOpenRouter(prompt) {
 // ============================================================
 
 async function callOpenAI(prompt) {
+
     if (!OPENAI_API_KEY) {
-        throw new Error("OPENAI_API_KEY is not configured");
+
+        throw new Error(
+            "OPENAI_API_KEY is not configured"
+        );
+
     }
 
     const response = await fetch(
         "https://api.openai.com/v1/responses",
         {
+
             method: "POST",
+
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENAI_API_KEY}`
+
+                "Authorization":
+                    `Bearer ${OPENAI_API_KEY}`
             },
+
             body: JSON.stringify({
+
                 model: OPENAI_MODEL,
+
                 input: [
                     {
                         role: "user",
+
                         content: [
                             {
                                 type: "input_text",
@@ -541,115 +616,308 @@ async function callOpenAI(prompt) {
                         ]
                     }
                 ],
+
                 max_output_tokens: 1800
+
             })
+
         }
     );
 
     const data = await response.json();
 
     if (!response.ok) {
+
         throw new Error(
             data?.error?.message ||
             `OpenAI HTTP ${response.status}`
         );
+
     }
 
     let text = "";
 
-    // Standard Responses API output extraction
     if (Array.isArray(data.output)) {
+
         for (const item of data.output) {
-            if (!Array.isArray(item.content)) continue;
+
+            if (!Array.isArray(item.content)) {
+                continue;
+            }
 
             for (const content of item.content) {
+
                 if (
                     content.type === "output_text" &&
                     typeof content.text === "string"
                 ) {
+
                     text += content.text;
+
                 }
+
             }
+
         }
+
     }
 
-    // Extra fallback for possible SDK/API formatting
-    if (!text && typeof data.output_text === "string") {
+    if (
+        !text &&
+        typeof data.output_text === "string"
+    ) {
+
         text = data.output_text;
+
     }
 
     text = text.trim();
 
     if (!text) {
-        throw new Error("OpenAI returned empty response");
+
+        throw new Error(
+            "OpenAI returned empty response"
+        );
+
     }
 
     return text;
 }
 
 // ============================================================
-// AI PROVIDER FALLBACK
-// Gemini → OpenRouter → OpenAI
+// GROQ
+// ============================================================
+
+async function callGroq(prompt) {
+
+    if (!GROQ_API_KEY) {
+
+        throw new Error(
+            "GROQ_API_KEY is not configured"
+        );
+
+    }
+
+    const response = await fetch(
+        "https://api.groq.com/openai/v1/chat/completions",
+        {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json",
+
+                "Authorization":
+                    `Bearer ${GROQ_API_KEY}`
+            },
+
+            body: JSON.stringify({
+
+                model: GROQ_MODEL,
+
+                messages: [
+                    {
+                        role: "user",
+                        content: prompt
+                    }
+                ],
+
+                temperature: 0.85,
+
+                max_completion_tokens: 1800
+
+            })
+
+        }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+
+        throw new Error(
+            data?.error?.message ||
+            `Groq HTTP ${response.status}`
+        );
+
+    }
+
+    const text =
+        data?.choices?.[0]?.message?.content;
+
+    if (!text) {
+
+        throw new Error(
+            "Groq returned empty response"
+        );
+
+    }
+
+    return text.trim();
+}
+
+// ============================================================
+// AI FALLBACK
+//
+// Gemini
+//    ↓
+// OpenRouter
+//    ↓
+// OpenAI
+//    ↓
+// Groq
 // ============================================================
 
 async function generateWithFallback(prompt) {
+
     const errors = [];
 
     // --------------------------------------------------------
-    // 1. GEMINI
+    // GEMINI
     // --------------------------------------------------------
 
     if (GEMINI_API_KEY) {
+
         try {
-            const result = await callGemini(prompt);
+
+            const result =
+                await callGemini(prompt);
 
             return {
                 provider: "gemini",
                 text: result
             };
+
         } catch (error) {
-            errors.push(`Gemini: ${error.message}`);
+
+            console.error(
+                "[Gemini failed]",
+                error.message
+            );
+
+            errors.push(
+                `Gemini: ${error.message}`
+            );
+
         }
+
     } else {
-        errors.push("Gemini: API key not configured");
+
+        errors.push(
+            "Gemini: API key not configured"
+        );
+
     }
 
     // --------------------------------------------------------
-    // 2. OPENROUTER
+    // OPENROUTER
     // --------------------------------------------------------
 
     if (OPENROUTER_API_KEY) {
+
         try {
-            const result = await callOpenRouter(prompt);
+
+            const result =
+                await callOpenRouter(prompt);
 
             return {
                 provider: "openrouter",
                 text: result
             };
+
         } catch (error) {
-            errors.push(`OpenRouter: ${error.message}`);
+
+            console.error(
+                "[OpenRouter failed]",
+                error.message
+            );
+
+            errors.push(
+                `OpenRouter: ${error.message}`
+            );
+
         }
+
     } else {
-        errors.push("OpenRouter: API key not configured");
+
+        errors.push(
+            "OpenRouter: API key not configured"
+        );
+
     }
 
     // --------------------------------------------------------
-    // 3. OPENAI
+    // OPENAI
     // --------------------------------------------------------
 
     if (OPENAI_API_KEY) {
+
         try {
-            const result = await callOpenAI(prompt);
+
+            const result =
+                await callOpenAI(prompt);
 
             return {
                 provider: "openai",
                 text: result
             };
+
         } catch (error) {
-            errors.push(`OpenAI: ${error.message}`);
+
+            console.error(
+                "[OpenAI failed]",
+                error.message
+            );
+
+            errors.push(
+                `OpenAI: ${error.message}`
+            );
+
         }
+
     } else {
-        errors.push("OpenAI: API key not configured");
+
+        errors.push(
+            "OpenAI: API key not configured"
+        );
+
+    }
+
+    // --------------------------------------------------------
+    // GROQ
+    // --------------------------------------------------------
+
+    if (GROQ_API_KEY) {
+
+        try {
+
+            const result =
+                await callGroq(prompt);
+
+            return {
+                provider: "groq",
+                text: result
+            };
+
+        } catch (error) {
+
+            console.error(
+                "[Groq failed]",
+                error.message
+            );
+
+            errors.push(
+                `Groq: ${error.message}`
+            );
+
+        }
+
+    } else {
+
+        errors.push(
+            "Groq: API key not configured"
+        );
+
     }
 
     throw new Error(
@@ -663,31 +931,42 @@ async function generateWithFallback(prompt) {
 // ============================================================
 
 function parseStory(text) {
-    if (!text) return [];
 
-    let cleaned = cleanAIText(text);
+    if (!text) {
+        return [];
+    }
+
+    let cleaned =
+        cleanAIText(text);
+
+    cleaned =
+        cleaned
+            .replace(
+                /^Here is the story:\s*/i,
+                ""
+            )
+            .replace(
+                /^Story:\s*/i,
+                ""
+            )
+            .trim();
 
     // --------------------------------------------------------
-    // Remove common accidental prefixes
-    // --------------------------------------------------------
-
-    cleaned = cleaned
-        .replace(/^Here is the story:\s*/i, "")
-        .replace(/^Story:\s*/i, "")
-        .trim();
-
-    // --------------------------------------------------------
-    // JSON recovery
+    // JSON
     // --------------------------------------------------------
 
     if (
         cleaned.startsWith("{") ||
         cleaned.startsWith("[")
     ) {
+
         try {
-            const parsed = JSON.parse(cleaned);
+
+            const parsed =
+                JSON.parse(cleaned);
 
             if (Array.isArray(parsed)) {
+
                 return parsed
                     .map(item =>
                         typeof item === "string"
@@ -698,9 +977,11 @@ function parseStory(text) {
                               ""
                     )
                     .filter(Boolean);
+
             }
 
             if (Array.isArray(parsed.parts)) {
+
                 return parsed.parts
                     .map(item =>
                         typeof item === "string"
@@ -711,126 +992,203 @@ function parseStory(text) {
                               ""
                     )
                     .filter(Boolean);
+
             }
 
-            if (typeof parsed.story === "string") {
-                return parseStory(parsed.story);
+            if (
+                typeof parsed.story === "string"
+            ) {
+
+                return parseStory(
+                    parsed.story
+                );
+
             }
+
         } catch (error) {
-            // Continue with text parser
+
+            // Continue parser
+
         }
+
     }
 
     // --------------------------------------------------------
     // PART labels
     // --------------------------------------------------------
 
-    const partMatches = cleaned
-        .split(/\n\s*(?=PART\s*\d+\s*:?\s*)/i)
-        .map(part =>
-            part
-                .replace(/^PART\s*\d+\s*:?\s*/i, "")
-                .trim()
-        )
-        .filter(Boolean);
+    const partMatches =
+        cleaned
+            .split(
+                /\n\s*(?=PART\s*\d+\s*:?\s*)/i
+            )
+            .map(part =>
+                part
+                    .replace(
+                        /^PART\s*\d+\s*:?\s*/i,
+                        ""
+                    )
+                    .trim()
+            )
+            .filter(Boolean);
 
-    if (partMatches.length >= 6 && partMatches.length <= 12) {
+    if (
+        partMatches.length >= 6 &&
+        partMatches.length <= 12
+    ) {
+
         return partMatches;
+
     }
 
     // --------------------------------------------------------
     // Numbered lines
     // --------------------------------------------------------
 
-    const numbered = cleaned
-        .split(/\n+/)
-        .map(line =>
-            line
-                .replace(/^\s*\d+\s*[\.\)\-:]\s*/, "")
-                .trim()
-        )
-        .filter(Boolean);
+    const numbered =
+        cleaned
+            .split(/\n+/)
+            .map(line =>
+                line
+                    .replace(
+                        /^\s*\d+\s*[\.\)\-:]\s*/,
+                        ""
+                    )
+                    .trim()
+            )
+            .filter(Boolean);
 
-    if (numbered.length >= 6 && numbered.length <= 12) {
+    if (
+        numbered.length >= 6 &&
+        numbered.length <= 12
+    ) {
+
         return numbered;
+
     }
 
     // --------------------------------------------------------
-    // Bullet lines
+    // Bullets
     // --------------------------------------------------------
 
-    const bullets = cleaned
-        .split(/\n+/)
-        .map(line =>
-            line
-                .replace(/^\s*[-*•]\s*/, "")
-                .trim()
-        )
-        .filter(Boolean);
+    const bullets =
+        cleaned
+            .split(/\n+/)
+            .map(line =>
+                line
+                    .replace(
+                        /^\s*[-*•]\s*/,
+                        ""
+                    )
+                    .trim()
+            )
+            .filter(Boolean);
 
-    if (bullets.length >= 6 && bullets.length <= 12) {
+    if (
+        bullets.length >= 6 &&
+        bullets.length <= 12
+    ) {
+
         return bullets;
+
     }
 
     // --------------------------------------------------------
     // Paragraphs
     // --------------------------------------------------------
 
-    const paragraphs = cleaned
-        .split(/\n\s*\n+/)
-        .map(p => p.trim())
-        .filter(Boolean);
+    const paragraphs =
+        cleaned
+            .split(/\n\s*\n+/)
+            .map(p => p.trim())
+            .filter(Boolean);
 
-    if (paragraphs.length >= 6 && paragraphs.length <= 12) {
+    if (
+        paragraphs.length >= 6 &&
+        paragraphs.length <= 12
+    ) {
+
         return paragraphs;
+
     }
 
     // --------------------------------------------------------
-    // Simple lines
+    // Lines
     // --------------------------------------------------------
 
-    const lines = cleaned
-        .split(/\n+/)
-        .map(line => line.trim())
-        .filter(Boolean);
+    const lines =
+        cleaned
+            .split(/\n+/)
+            .map(line => line.trim())
+            .filter(Boolean);
 
-    if (lines.length >= 6 && lines.length <= 12) {
+    if (
+        lines.length >= 6 &&
+        lines.length <= 12
+    ) {
+
         return lines;
+
     }
 
     // --------------------------------------------------------
     // Sentence fallback
     // --------------------------------------------------------
 
-    const sentences = cleaned
-        .split(/(?<=[.!?])\s+/)
-        .map(s => s.trim())
-        .filter(Boolean);
+    const sentences =
+        cleaned
+            .split(/(?<=[.!?])\s+/)
+            .map(s => s.trim())
+            .filter(Boolean);
 
     if (sentences.length >= 6) {
+
         const grouped = [];
 
-        const targetParts = Math.min(
-            10,
-            Math.max(6, Math.ceil(sentences.length / 2))
-        );
+        const targetParts =
+            Math.min(
+                10,
+                Math.max(
+                    6,
+                    Math.ceil(
+                        sentences.length / 2
+                    )
+                )
+            );
 
-        const perPart = Math.ceil(
-            sentences.length / targetParts
-        );
+        const perPart =
+            Math.ceil(
+                sentences.length /
+                targetParts
+            );
 
-        for (let i = 0; i < sentences.length; i += perPart) {
+        for (
+            let i = 0;
+            i < sentences.length;
+            i += perPart
+        ) {
+
             grouped.push(
                 sentences
-                    .slice(i, i + perPart)
+                    .slice(
+                        i,
+                        i + perPart
+                    )
                     .join(" ")
                     .trim()
             );
+
         }
 
-        if (grouped.length >= 6 && grouped.length <= 10) {
+        if (
+            grouped.length >= 6 &&
+            grouped.length <= 10
+        ) {
+
             return grouped;
+
         }
+
     }
 
     return [];
@@ -841,11 +1199,18 @@ function parseStory(text) {
 // ============================================================
 
 function splitProductFacts(description) {
-    if (!description) return [];
+
+    if (!description) {
+        return [];
+    }
 
     return description
-        .split(/(?<=[.!?])\s+/)
-        .map(sentence => sentence.trim())
+        .split(
+            /(?<=[.!?])\s+/
+        )
+        .map(sentence =>
+            sentence.trim()
+        )
         .filter(Boolean);
 }
 
@@ -854,11 +1219,17 @@ function splitProductFacts(description) {
 // ============================================================
 
 function containsUrl(text) {
-    return /https?:\/\/|www\./i.test(text);
+
+    return /https?:\/\/|www\./i.test(
+        text
+    );
+
 }
 
 function containsBannedIndonesian(text) {
+
     const banned = [
+
         /\bnggak\b/i,
         /\benggak\b/i,
         /\bbanget\b/i,
@@ -873,80 +1244,132 @@ function containsBannedIndonesian(text) {
         /\btraveling\b/i,
         /\bpakai\b/i,
         /\bbisa\b/i
+
     ];
 
-    return banned.some(pattern => pattern.test(text));
+    return banned.some(
+        pattern => pattern.test(text)
+    );
 }
 
+// ============================================================
+// FAKE EXPERIENCE DETECTOR
+// ============================================================
+
 function containsFakeExperience(text) {
+
     const patterns = [
+
         /\baku dah guna\b/i,
         /\baku sudah guna\b/i,
         /\baku pernah guna\b/i,
+
         /\baku pernah cuba\b/i,
         /\baku dah cuba\b/i,
         /\baku sudah cuba\b/i,
+
         /\baku pernah test\b/i,
         /\baku dah test\b/i,
         /\baku sudah test\b/i,
+
         /\baku pernah beli\b/i,
         /\baku dah beli\b/i,
         /\baku sudah beli\b/i,
+
         /\baku pernah pakai\b/i,
         /\baku dah pakai\b/i,
         /\baku sudah pakai\b/i,
+
         /\baku pernah pegang\b/i,
         /\baku dah pegang\b/i,
         /\baku sudah pegang\b/i,
+
         /\baku bawa\b/i,
+
         /\baku review\b/i,
+
         /\baku guna\b/i,
         /\baku cuba\b/i,
         /\baku test\b/i,
         /\baku beli\b/i,
         /\baku pakai\b/i,
         /\baku pegang\b/i,
-        /\baku dah beli\b/i,
+
         /\baku pernah tengok sendiri\b/i
+
     ];
 
-    return patterns.some(pattern => pattern.test(text));
+    return patterns.some(
+        pattern => pattern.test(text)
+    );
 }
 
+// ============================================================
+// UNSUPPORTED CLAIM DETECTOR
+// ============================================================
+
 function getInventedSpecificClaim(text) {
+
     const patterns = [
+
         /\b\d+(?:\.\d+)?\s*(?:kg|g|gram|grams)\b/i,
+
         /\b\d+(?:\.\d+)?\s*(?:rm|thb|myr)\b/i,
+
         /\b\d+(?:\.\d+)?\s*(?:km|kilometer|kilometres?)\b/i,
+
         /\b\d+(?:\.\d+)?\s*(?:cm|mm|inch|inches)\b/i,
+
         /\b\d+(?:\.\d+)?\s*(?:hour|hours|jam|minit|minutes)\b/i,
+
         /\b\d+(?:\.\d+)?\s*(?:hari|days|minggu|weeks|malam|nights)\b/i,
 
         /\b100%\b/i,
+
         /\bpasti\b/i,
+
         /\bdijamin\b/i,
+
         /\bconfirm\b/i,
 
         /\bviral\b/i,
+
         /\bpopular\b/i,
+
         /\bramai guna\b/i,
+
         /\bbanyak orang guna\b/i,
+
         /\bbanyak orang pakai\b/i,
+
         /\bbanyak orang beli\b/i,
 
         /\bbattery\b/i,
+
         /\bbateri tahan\b/i,
+
         /\bberatnya\b/i,
+
         /\bberat cuma\b/i,
+
         /\bdimensi\b/i,
+
         /\bwaterproof\b/i,
+
         /\bkalis air\b/i
+
     ];
 
-    for (const pattern of patterns) {
+    for (
+        const pattern of patterns
+    ) {
+
         if (pattern.test(text)) {
+
             return pattern.toString();
+
         }
+
     }
 
     return null;
@@ -957,99 +1380,169 @@ function getInventedSpecificClaim(text) {
 // ============================================================
 
 function validateStoryShell(parts) {
+
     if (!Array.isArray(parts)) {
-        throw new Error("AI story parser returned invalid format.");
+
+        throw new Error(
+            "AI story parser returned invalid format."
+        );
+
     }
 
-    if (parts.length < 6 || parts.length > 10) {
+    if (
+        parts.length < 6 ||
+        parts.length > 10
+    ) {
+
         throw new Error(
             `AI story must contain 6–10 parts. Found ${parts.length}.`
         );
+
     }
 
-    const fullText = parts.join("\n");
+    const fullText =
+        parts.join("\n");
 
-    if (!fullText.includes("{{PRODUCT_NAME}}")) {
+    if (
+        !fullText.includes(
+            "{{PRODUCT_NAME}}"
+        )
+    ) {
+
         throw new Error(
             "AI story must contain {{PRODUCT_NAME}}."
         );
+
     }
 
-    if (!fullText.includes("{{FACT_1}}")) {
+    if (
+        !fullText.includes(
+            "{{FACT_1}}"
+        )
+    ) {
+
         throw new Error(
             "AI story must contain {{FACT_1}}."
         );
+
     }
 
     const productNameCount =
-        (fullText.match(/\{\{PRODUCT_NAME\}\}/g) || []).length;
+        (
+            fullText.match(
+                /\{\{PRODUCT_NAME\}\}/g
+            ) || []
+        ).length;
 
-    if (productNameCount !== 1) {
+    if (
+        productNameCount !== 1
+    ) {
+
         throw new Error(
             `{{PRODUCT_NAME}} must appear exactly once. Found ${productNameCount}.`
         );
+
     }
 
     const fact1Count =
-        (fullText.match(/\{\{FACT_1\}\}/g) || []).length;
+        (
+            fullText.match(
+                /\{\{FACT_1\}\}/g
+            ) || []
+        ).length;
 
-    if (fact1Count !== 1) {
+    if (
+        fact1Count !== 1
+    ) {
+
         throw new Error(
             `{{FACT_1}} must appear exactly once. Found ${fact1Count}.`
         );
+
     }
 
     if (containsUrl(fullText)) {
+
         throw new Error(
             "AI story contains a URL. AI is not allowed to generate URLs."
         );
+
     }
 
-    if (containsFakeExperience(fullText)) {
+    if (
+        containsFakeExperience(
+            fullText
+        )
+    ) {
+
         throw new Error(
             "AI story contains a possible fabricated personal experience."
         );
+
     }
 
     const inventedClaim =
-        getInventedSpecificClaim(fullText);
+        getInventedSpecificClaim(
+            fullText
+        );
 
     if (inventedClaim) {
+
         throw new Error(
             "AI story contains an unsupported specific claim."
         );
+
     }
 
     return true;
 }
 
 // ============================================================
-// FINAL VALIDATION AFTER FACT INJECTION
+// FINAL STORY VALIDATION
 // ============================================================
 
 function validateFinalStory(parts) {
+
     if (!Array.isArray(parts)) {
-        throw new Error("Final story is invalid.");
+
+        throw new Error(
+            "Final story is invalid."
+        );
+
     }
 
-    if (parts.length < 6 || parts.length > 10) {
+    if (
+        parts.length < 6 ||
+        parts.length > 10
+    ) {
+
         throw new Error(
             `Final story must contain 6–10 parts. Found ${parts.length}.`
         );
+
     }
 
-    const fullText = parts.join("\n");
+    const fullText =
+        parts.join("\n");
 
     if (containsUrl(fullText)) {
+
         throw new Error(
             "Final story unexpectedly contains a URL."
         );
+
     }
 
-    if (containsFakeExperience(fullText)) {
+    if (
+        containsFakeExperience(
+            fullText
+        )
+    ) {
+
         throw new Error(
             "Final story contains possible fabricated personal experience."
         );
+
     }
 
     return true;
@@ -1064,15 +1557,22 @@ function injectProductFacts(
     productName,
     productDescription
 ) {
-    const facts = splitProductFacts(productDescription);
+
+    const facts =
+        splitProductFacts(
+            productDescription
+        );
 
     if (facts.length === 0) {
+
         throw new Error(
             "Product description does not contain usable facts."
         );
+
     }
 
-    const fact1 = facts[0];
+    const fact1 =
+        facts[0];
 
     const fact2 =
         facts.length > 1
@@ -1085,81 +1585,130 @@ function injectProductFacts(
             : "";
 
     return parts.map(part => {
+
         return part
+
             .replace(
                 /\{\{PRODUCT_NAME\}\}/g,
                 productName
             )
+
             .replace(
                 /\{\{FACT_1\}\}/g,
                 fact1
             )
+
             .replace(
                 /\{\{FACT_2\}\}/g,
                 fact2
             )
+
             .replace(
                 /\{\{FACT_3\}\}/g,
                 fact3
             )
-            .replace(/\s+\./g, ".")
-            .replace(/\.\./g, ".")
+
+            .replace(
+                /\s+\./g,
+                "."
+            )
+
+            .replace(
+                /\.\./g,
+                "."
+            )
+
             .trim();
+
     });
 }
 
 // ============================================================
-// FINAL STORY NUMBERING
+// FORMAT STORY
 // ============================================================
 
 function formatStory(parts) {
+
     return parts
-        .map((part, index) => {
-            return `${index + 1}. ${part}`;
-        })
+        .map(
+            (part, index) =>
+                `${index + 1}. ${part}`
+        )
         .join("\n\n");
+
 }
 
 // ============================================================
 // AFFILIATE INJECTION
 // ============================================================
 
-function injectAffiliateUrl(story, affiliateUrl) {
+function injectAffiliateUrl(
+    story,
+    affiliateUrl
+) {
+
     if (!affiliateUrl) {
+
         throw new Error(
             "affiliateUrl is required."
         );
+
     }
 
-    const cleanUrl = String(affiliateUrl).trim();
+    const cleanUrl =
+        String(
+            affiliateUrl
+        ).trim();
 
-    if (!/^https?:\/\//i.test(cleanUrl)) {
+    if (
+        !/^https?:\/\//i.test(
+            cleanUrl
+        )
+    ) {
+
         throw new Error(
             "affiliateUrl must be a valid HTTP/HTTPS URL."
         );
+
     }
 
-    // Remove accidental copies first
-    const escaped = cleanUrl.replace(
-        /[.*+?^${}()|[\]\\]/g,
-        "\\$&"
-    );
+    const escaped =
+        cleanUrl.replace(
+            /[.*+?^${}()|[\]\\]/g,
+            "\\$&"
+        );
 
     const existingCount =
-        (story.match(new RegExp(escaped, "g")) || [])
-            .length;
+        (
+            story.match(
+                new RegExp(
+                    escaped,
+                    "g"
+                )
+            ) || []
+        ).length;
 
-    if (existingCount > 1) {
+    if (
+        existingCount > 1
+    ) {
+
         throw new Error(
             "Affiliate URL appears more than once."
         );
+
     }
 
-    if (existingCount === 1) {
+    if (
+        existingCount === 1
+    ) {
+
         return story;
+
     }
 
-    return `${story}\n\n${cleanUrl}`;
+    return (
+        `${story}\n\n${cleanUrl}`
+    );
 }
 
 // ============================================================
@@ -1167,42 +1716,64 @@ function injectAffiliateUrl(story, affiliateUrl) {
 // ============================================================
 
 async function generateFullStory({
+
     productName,
     productDescription,
     affiliateUrl,
     requireAffiliate = true
+
 }) {
+
     if (!productName) {
+
         throw new Error(
             "productName is required."
         );
+
     }
 
     if (!productDescription) {
+
         throw new Error(
             "productDescription is required."
         );
+
     }
 
-    if (requireAffiliate && !affiliateUrl) {
+    if (
+        requireAffiliate &&
+        !affiliateUrl
+    ) {
+
         throw new Error(
             "affiliateUrl is required for /api/ai/generate."
         );
+
     }
 
     const prompt =
-        buildPrompt(productDescription);
+        buildPrompt(
+            productDescription
+        );
 
     const aiResult =
-        await generateWithFallback(prompt);
+        await generateWithFallback(
+            prompt
+        );
 
     const rawText =
-        cleanAIText(aiResult.text);
+        cleanAIText(
+            aiResult.text
+        );
 
     const parts =
-        parseStory(rawText);
+        parseStory(
+            rawText
+        );
 
-    validateStoryShell(parts);
+    validateStoryShell(
+        parts
+    );
 
     const finalParts =
         injectProductFacts(
@@ -1211,21 +1782,29 @@ async function generateFullStory({
             productDescription
         );
 
-    validateFinalStory(finalParts);
+    validateFinalStory(
+        finalParts
+    );
 
     let finalStory =
-        formatStory(finalParts);
+        formatStory(
+            finalParts
+        );
 
-    let affiliateUrlInjected = false;
+    let affiliateUrlInjected =
+        false;
 
     if (requireAffiliate) {
+
         finalStory =
             injectAffiliateUrl(
                 finalStory,
                 affiliateUrl
             );
 
-        affiliateUrlInjected = true;
+        affiliateUrlInjected =
+            true;
+
     }
 
     const urlCount =
@@ -1235,18 +1814,31 @@ async function generateFullStory({
             ) || []
         ).length;
 
-    if (requireAffiliate && urlCount !== 1) {
+    if (
+        requireAffiliate &&
+        urlCount !== 1
+    ) {
+
         throw new Error(
             `Expected exactly 1 affiliate URL. Found ${urlCount}.`
         );
+
     }
 
     return {
+
         version: VERSION,
-        provider: aiResult.provider,
-        story: finalStory,
+
+        provider:
+            aiResult.provider,
+
+        story:
+            finalStory,
+
         affiliateUrlInjected,
+
         urlCount
+
     };
 }
 
@@ -1255,226 +1847,438 @@ async function generateFullStory({
 // ============================================================
 
 app.get("/", (req, res) => {
+
     res.json({
+
         success: true,
-        name: "StoryAff AI",
-        version: VERSION,
-        status: "online",
+
+        name:
+            "StoryAff AI",
+
+        version:
+            VERSION,
+
+        status:
+            "online",
+
         providers: {
-            gemini: !!GEMINI_API_KEY,
-            openrouter: !!OPENROUTER_API_KEY,
-            openai: !!OPENAI_API_KEY
+
+            gemini:
+                !!GEMINI_API_KEY,
+
+            openrouter:
+                !!OPENROUTER_API_KEY,
+
+            openai:
+                !!OPENAI_API_KEY,
+
+            groq:
+                !!GROQ_API_KEY
+
         },
+
         fallbackOrder: [
+
             "gemini",
+
             "openrouter",
-            "openai"
+
+            "openai",
+
+            "groq"
+
         ]
+
     });
+
 });
 
 // ============================================================
 // HEALTH
 // ============================================================
 
-app.get("/api/health", (req, res) => {
-    res.json({
-        success: true,
-        version: VERSION,
-        status: "healthy",
-        aiProviders: {
-            gemini: GEMINI_API_KEY
-                ? "configured"
-                : "missing",
+app.get(
+    "/api/health",
+    (req, res) => {
 
-            openrouter: OPENROUTER_API_KEY
-                ? "configured"
-                : "missing",
+        res.json({
 
-            openai: OPENAI_API_KEY
-                ? "configured"
-                : "missing"
-        }
-    });
-});
+            success: true,
+
+            version:
+                VERSION,
+
+            status:
+                "healthy",
+
+            aiProviders: {
+
+                gemini:
+                    GEMINI_API_KEY
+                        ? "configured"
+                        : "missing",
+
+                openrouter:
+                    OPENROUTER_API_KEY
+                        ? "configured"
+                        : "missing",
+
+                openai:
+                    OPENAI_API_KEY
+                        ? "configured"
+                        : "missing",
+
+                groq:
+                    GROQ_API_KEY
+                        ? "configured"
+                        : "missing"
+
+            },
+
+            models: {
+
+                gemini:
+                    GEMINI_MODEL,
+
+                openrouter:
+                    OPENROUTER_MODEL,
+
+                openai:
+                    OPENAI_MODEL,
+
+                groq:
+                    GROQ_MODEL
+
+            }
+
+        });
+
+    }
+);
 
 // ============================================================
 // AI TEST
-// NO AFFILIATE URL REQUIRED
 // ============================================================
 
-app.post("/api/ai/test", async (req, res) => {
-    try {
-        const {
-            productName,
-            productDescription
-        } = req.body;
+app.post(
+    "/api/ai/test",
+    async (req, res) => {
 
-        if (!productName) {
-            return res.status(400).json({
-                success: false,
-                error: "productName is required."
-            });
-        }
+        try {
 
-        if (!productDescription) {
-            return res.status(400).json({
-                success: false,
-                error: "productDescription is required."
-            });
-        }
-
-        const result =
-            await generateFullStory({
+            const {
                 productName,
-                productDescription,
-                requireAffiliate: false
+                productDescription
+            } = req.body;
+
+            if (!productName) {
+
+                return res
+                    .status(400)
+                    .json({
+
+                        success: false,
+
+                        error:
+                            "productName is required."
+
+                    });
+
+            }
+
+            if (!productDescription) {
+
+                return res
+                    .status(400)
+                    .json({
+
+                        success: false,
+
+                        error:
+                            "productDescription is required."
+
+                    });
+
+            }
+
+            const result =
+                await generateFullStory({
+
+                    productName,
+
+                    productDescription,
+
+                    requireAffiliate:
+                        false
+
+                });
+
+            return res.json({
+
+                success: true,
+
+                version:
+                    VERSION,
+
+                provider:
+                    result.provider,
+
+                story:
+                    result.story,
+
+                affiliateUrlInjected:
+                    false,
+
+                urlCount:
+                    0
+
             });
 
-        return res.json({
-            success: true,
-            version: VERSION,
-            provider: result.provider,
-            story: result.story,
-            affiliateUrlInjected: false,
-            urlCount: 0
-        });
+        } catch (error) {
 
-    } catch (error) {
-        console.error(
-            "[/api/ai/test ERROR]",
-            error
-        );
+            console.error(
+                "[/api/ai/test ERROR]",
+                error
+            );
 
-        return res.status(500).json({
-            success: false,
-            version: VERSION,
-            error: error.message
-        });
+            return res
+                .status(500)
+                .json({
+
+                    success: false,
+
+                    version:
+                        VERSION,
+
+                    error:
+                        error.message
+
+                });
+
+        }
+
     }
-});
+);
 
 // ============================================================
 // AI GENERATE
-// AFFILIATE URL REQUIRED
 // ============================================================
 
-app.post("/api/ai/generate", async (req, res) => {
-    try {
-        const {
-            productName,
-            productDescription,
-            affiliateUrl
-        } = req.body;
+app.post(
+    "/api/ai/generate",
+    async (req, res) => {
 
-        if (!productName) {
-            return res.status(400).json({
-                success: false,
-                error: "productName is required."
-            });
-        }
+        try {
 
-        if (!productDescription) {
-            return res.status(400).json({
-                success: false,
-                error: "productDescription is required."
-            });
-        }
-
-        if (!affiliateUrl) {
-            return res.status(400).json({
-                success: false,
-                error: "affiliateUrl is required."
-            });
-        }
-
-        const result =
-            await generateFullStory({
+            const {
                 productName,
                 productDescription,
-                affiliateUrl,
-                requireAffiliate: true
+                affiliateUrl
+            } = req.body;
+
+            if (!productName) {
+
+                return res
+                    .status(400)
+                    .json({
+
+                        success: false,
+
+                        error:
+                            "productName is required."
+
+                    });
+
+            }
+
+            if (!productDescription) {
+
+                return res
+                    .status(400)
+                    .json({
+
+                        success: false,
+
+                        error:
+                            "productDescription is required."
+
+                    });
+
+            }
+
+            if (!affiliateUrl) {
+
+                return res
+                    .status(400)
+                    .json({
+
+                        success: false,
+
+                        error:
+                            "affiliateUrl is required."
+
+                    });
+
+            }
+
+            const result =
+                await generateFullStory({
+
+                    productName,
+
+                    productDescription,
+
+                    affiliateUrl,
+
+                    requireAffiliate:
+                        true
+
+                });
+
+            return res.json({
+
+                success: true,
+
+                version:
+                    VERSION,
+
+                provider:
+                    result.provider,
+
+                story:
+                    result.story,
+
+                affiliateUrlInjected:
+                    result.affiliateUrlInjected,
+
+                urlCount:
+                    result.urlCount
+
             });
 
-        return res.json({
-            success: true,
-            version: VERSION,
-            provider: result.provider,
-            story: result.story,
-            affiliateUrlInjected:
-                result.affiliateUrlInjected,
-            urlCount: result.urlCount
-        });
+        } catch (error) {
 
-    } catch (error) {
-        console.error(
-            "[/api/ai/generate ERROR]",
-            error
-        );
+            console.error(
+                "[/api/ai/generate ERROR]",
+                error
+            );
 
-        return res.status(500).json({
-            success: false,
-            version: VERSION,
-            error: error.message
-        });
+            return res
+                .status(500)
+                .json({
+
+                    success: false,
+
+                    version:
+                        VERSION,
+
+                    error:
+                        error.message
+
+                });
+
+        }
+
     }
-});
+);
 
 // ============================================================
 // 404
 // ============================================================
 
-app.use((req, res) => {
-    res.status(404).json({
-        success: false,
-        error: "Endpoint not found.",
-        version: VERSION
-    });
-});
+app.use(
+    (req, res) => {
+
+        res
+            .status(404)
+            .json({
+
+                success: false,
+
+                error:
+                    "Endpoint not found.",
+
+                version:
+                    VERSION
+
+            });
+
+    }
+);
 
 // ============================================================
-// GLOBAL ERROR HANDLER
+// GLOBAL ERROR
 // ============================================================
 
-app.use((err, req, res, next) => {
-    console.error(
-        "[GLOBAL ERROR]",
-        err
-    );
+app.use(
+    (
+        err,
+        req,
+        res,
+        next
+    ) => {
 
-    res.status(500).json({
-        success: false,
-        error: "Internal server error.",
-        version: VERSION
-    });
-});
+        console.error(
+            "[GLOBAL ERROR]",
+            err
+        );
+
+        res
+            .status(500)
+            .json({
+
+                success: false,
+
+                error:
+                    "Internal server error.",
+
+                version:
+                    VERSION
+
+            });
+
+    }
+);
 
 // ============================================================
 // START SERVER
 // ============================================================
 
-app.listen(PORT, () => {
-    console.log(
-        `StoryAff AI ${VERSION} running on port ${PORT}`
-    );
+app.listen(
+    PORT,
+    () => {
 
-    console.log(
-        "AI fallback order: Gemini → OpenRouter → OpenAI"
-    );
+        console.log(
+            `StoryAff AI ${VERSION} running on port ${PORT}`
+        );
 
-    console.log(
-        `Gemini configured: ${!!GEMINI_API_KEY}`
-    );
+        console.log(
+            "AI fallback order:"
+        );
 
-    console.log(
-        `OpenRouter configured: ${!!OPENROUTER_API_KEY}`
-    );
+        console.log(
+            "Gemini → OpenRouter → OpenAI → Groq"
+        );
 
-    console.log(
-        `OpenAI configured: ${!!OPENAI_API_KEY}`
-    );
+        console.log(
+            `Gemini configured: ${!!GEMINI_API_KEY}`
+        );
 
-    console.log(
-        `OpenAI model: ${OPENAI_MODEL}`
-    );
-});
+        console.log(
+            `OpenRouter configured: ${!!OPENROUTER_API_KEY}`
+        );
+
+        console.log(
+            `OpenAI configured: ${!!OPENAI_API_KEY}`
+        );
+
+        console.log(
+            `Groq configured: ${!!GROQ_API_KEY}`
+        );
+
+        console.log(
+            `Groq model: ${GROQ_MODEL}`
+        );
+
+    }
+);
