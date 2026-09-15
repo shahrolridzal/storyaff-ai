@@ -10,14 +10,26 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+
+// ==========================================
+// HOME
+// ==========================================
+
 app.get("/", (req, res) => {
     res.json({
         success: true,
         app: "StoryAff AI",
         version: "1.0.0",
-        status: "online"
+        status: "online",
+        ai: GEMINI_API_KEY ? "connected" : "not_configured"
     });
 });
+
+// ==========================================
+// HEALTH CHECK
+// ==========================================
 
 app.get("/health", (req, res) => {
     res.json({
@@ -27,17 +39,32 @@ app.get("/health", (req, res) => {
     });
 });
 
-app.get("/api/ai/test", (req, res) => {
-    res.json({
-        success: true,
-        message: "StoryAff AI engine is ready.",
-        nextStep: "Connect AI"
-    });
-});
+// ==========================================
+// AI TEST
+// ==========================================
 
-app.listen(PORT, () => {
-    console.log("=================================");
-    console.log("       STORYAFF AI BACKEND");
-    console.log("=================================");
-    console.log("Server running on port " + PORT);
-});
+app.get("/api/ai/test", async (req, res) => {
+
+    if (!GEMINI_API_KEY) {
+        return res.status(500).json({
+            success: false,
+            error: "GEMINI_API_KEY is not configured in Render."
+        });
+    }
+
+    try {
+
+        const url =
+            `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                contents: [
+                    {
+                        parts: [
+                            {
+                                text: "Reply with exactly: Story
