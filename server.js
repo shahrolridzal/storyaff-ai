@@ -14,23 +14,28 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const GEMINI_MODEL = "gemini-3.6-flash";
 const OPENROUTER_MODEL = "openrouter/free";
 
-const VERSION = "1.9.7";
+const VERSION = "1.9.8";
 
 
 // ============================================================
 // STORYAFF AI
-// V1.9.7
+// V1.9.8
 //
-// AI                = storytelling
-// BACKEND           = verified product facts
-// BACKEND           = affiliate URL
+// AI:
+// - storytelling
+// - Sofian personality
+// - story structure
 //
-// SOFIAN            = literally a travelling cat
+// BACKEND:
+// - verified product facts
+// - product name injection
+// - affiliate URL injection
+// - validation
 //
-// V1.9.7 CHANGE:
-// Flexible story parser.
-// AI does NOT have to perfectly follow PART formatting.
+// SOFIAN:
+// Literally a travelling cat.
 // ============================================================
+
 
 
 // ============================================================
@@ -48,7 +53,7 @@ function containsUrl(text) {
 
 
 // ============================================================
-// LANGUAGE PROTECTION
+// INDONESIAN / AI-LANGUAGE PROTECTION
 // ============================================================
 
 function containsBannedIndonesian(text) {
@@ -56,13 +61,18 @@ function containsBannedIndonesian(text) {
     if (!text) return false;
 
     const bannedWords = [
+
         "nggak",
         "enggak",
         "banget",
         "dong",
         "kamu",
         "anda",
-        "bisa"
+        "bisa",
+        "gue",
+        "gua",
+        "aku banget",
+        "ngapain"
     ];
 
     const lower =
@@ -72,7 +82,7 @@ function containsBannedIndonesian(text) {
 
         const regex =
             new RegExp(
-                `\\b${word}\\b`,
+                `\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
                 "i"
             );
 
@@ -83,7 +93,7 @@ function containsBannedIndonesian(text) {
 
 
 // ============================================================
-// FAKE EXPERIENCE PROTECTION
+// FAKE PERSONAL EXPERIENCE PROTECTION
 // ============================================================
 
 function containsFakeExperience(text) {
@@ -125,7 +135,9 @@ function containsFakeExperience(text) {
         /\baku cuba tadi\b/i,
         /\baku test tadi\b/i,
 
-        /\baku punya\b/i
+        /\baku review\b/i,
+        /\baku dah review\b/i,
+        /\baku pernah review\b/i
     ];
 
     return patterns.some(
@@ -136,64 +148,150 @@ function containsFakeExperience(text) {
 
 
 // ============================================================
-// INVENTED SPECIFIC CLAIM PROTECTION
+// UNSUPPORTED SPECIFIC CLAIM DETECTOR
+// ============================================================
+//
+// Important:
+// We DO NOT reject normal storytelling observations.
+//
+// We only reject claims that look like:
+// - invented measurable specifications
+// - invented prices
+// - invented personal product experience
+// - invented social proof
+// - strong unsupported guarantees
+//
 // ============================================================
 
-function containsInventedSpecifics(text) {
+function getInventedSpecificClaim(text) {
 
-    if (!text) return false;
+    if (!text) return null;
 
     const patterns = [
 
+        // ----------------------------------------------------
         // Specific weight
+        // ----------------------------------------------------
+
         /\b\d+\s*kg\b/i,
 
-        // Specific price
+        /\b\d+\s*(g|gram|grams)\b/i,
+
+
+        // ----------------------------------------------------
+        // Specific prices
+        // ----------------------------------------------------
+
         /\bRM\s*\d+/i,
+
         /\bTHB\s*\d+/i,
 
-        // Specific battery/time
+        /\bMYR\s*\d+/i,
+
+
+        // ----------------------------------------------------
+        // Specific battery / duration claims
+        // ----------------------------------------------------
+
         /\b\d+\s*(jam|hours|hour)\b/i,
 
+        /\b\d+\s*(minit|minutes|minute)\b/i,
+
+
+        // ----------------------------------------------------
         // Specific distance
+        // ----------------------------------------------------
+
         /\b\d+\s*(km|kilometer|kilometre)\b/i,
 
-        // Specific duration
+
+        // ----------------------------------------------------
+        // Specific travel duration
+        // ----------------------------------------------------
+
         /\b\d+\s*(hari|malam|minggu)\b/i,
 
-        // Unsupported physical placement
-        /\bmasuk poket\b/i,
-        /\bmasuk saku\b/i,
-        /\bdalam poket\b/i,
-        /\bdalam saku\b/i,
 
-        // Unsupported physical experience
-        /\bbahu.*pegal\b/i,
-        /\bbahu.*sakit\b/i,
-        /\bpenat.*bawa\b/i,
+        // ----------------------------------------------------
+        // Specific dimensions
+        // ----------------------------------------------------
 
-        // Other people
-        /\borang lain guna\b/i,
-        /\borang lain pakai\b/i,
-        /\borang lain beli\b/i,
-        /\btravel blogger\b/i,
-        /\breviewer\b/i,
-        /\bkomen orang\b/i,
+        /\b\d+\s*(cm|mm|inci|inch)\b/i,
 
-        // Unsupported performance
-        /\bvideo.*smooth\b/i,
-        /\bvideo.*blur\b/i,
-        /\bgambar.*blur\b/i,
 
-        // Unsupported ease of use
-        /\bsenang digunakan\b/i,
-        /\bmudah digunakan\b/i,
-        /\btak perlu.*setup\b/i
+        // ----------------------------------------------------
+        // Strong guarantees
+        // ----------------------------------------------------
+
+        /\b100%\s*(stabil|selamat|tahan|berkesan)\b/i,
+
+        /\bconfirm\s+(stabil|selamat|tahan|bagus|terbaik)\b/i,
+
+        /\bpasti\s+(stabil|selamat|tahan|bagus|terbaik)\b/i,
+
+        /\bdijamin\s+(stabil|selamat|tahan|bagus|terbaik)\b/i,
+
+
+        // ----------------------------------------------------
+        // Fake social proof
+        // ----------------------------------------------------
+
+        /\bramai\s+(orang|traveller|pelancong)\s+(guna|pakai|beli)\b/i,
+
+        /\bbanyak\s+(orang|traveller|pelancong)\s+(guna|pakai|beli)\b/i,
+
+        /\bpopular\s+(di|kalangan)\b/i,
+
+        /\bviral\s+(di|kalangan)\b/i,
+
+
+        // ----------------------------------------------------
+        // Specific fabricated product specification
+        // ----------------------------------------------------
+
+        /\bberatnya\s+\d+/i,
+
+        /\bsaiznya\s+\d+/i,
+
+        /\bbateri.*\d+\s*(jam|hours|hour)\b/i,
+
+        /\btahan.*\d+\s*(jam|hours|hour)\b/i,
+
+
+        // ----------------------------------------------------
+        // Product ownership / experience wording
+        // ----------------------------------------------------
+
+        /\baku\s+(guna|cuba|test|beli|pakai|pegang)\s+(kamera|produk|benda|ni|ini)\b/i,
+
+        /\baku\s+(dah|sudah|pernah)\s+(guna|cuba|test|beli|pakai|pegang)\b/i
     ];
 
-    return patterns.some(
-        pattern =>
-            pattern.test(text)
+
+    for (
+        const pattern of patterns
+    ) {
+
+        const match =
+            String(text).match(
+                pattern
+            );
+
+        if (match) {
+
+            return match[0];
+        }
+    }
+
+
+    return null;
+}
+
+
+function containsInventedSpecifics(text) {
+
+    return !!getInventedSpecificClaim(
+        text
     );
 }
 
@@ -207,15 +305,18 @@ function splitProductFacts(
 ) {
 
     if (!description) {
+
         return [];
     }
+
 
     return String(description)
         .split(
             /(?<=[.!?])\s+|\n+/
         )
         .map(
-            x => x.trim()
+            x =>
+                x.trim()
         )
         .filter(Boolean)
         .slice(0, 5);
@@ -232,45 +333,51 @@ SOFIAN THE TRAVELLING CAT
 
 Sofian is literally a travelling cat.
 
+He is a CAT.
+
 He is NOT a human pretending to be a cat.
 
 He is a cat with human-like intelligence,
 thoughts, opinions, curiosity and humour.
 
-His cat identity influences the way he sees the world.
+His identity as a cat is part of how he sees the world.
 
-Sofian naturally notices things humans might ignore:
+He notices things naturally:
 
 - food smells
 - interesting smells
 - places
-- cramped spaces
+- small spaces
 - bags
 - luggage
 - comfort
 - noise
+- humans
 - strange human behaviour
 - unnecessary hassle
-- things affecting travel
 
-However:
+Sofian can think and speak like a person.
 
-DO NOT repeatedly say "as a cat".
+But he remains a travelling cat.
 
-DO NOT repeatedly say "I'm a cat".
+IMPORTANT:
 
-DO NOT use "meow" jokes repeatedly.
+Do not repeatedly say:
 
-DO NOT make cat jokes every paragraph.
+"I am a cat."
 
-DO NOT turn Sofian into a human influencer.
+"as a cat..."
 
-DO NOT make Sofian a generic human traveller.
+"meow..."
 
-The reader should naturally feel that the narrator is a travelling cat.
+Do not turn the story into a cat parody.
 
-Sofian thinks like a person,
-but remains unmistakably a cat.
+Do not make him a human influencer.
+
+Do not make him a generic Malaysian human traveller.
+
+The reader should naturally feel that the narrator is Sofian,
+a travelling cat with a human-like mind.
 `;
 
 
@@ -280,7 +387,7 @@ but remains unmistakably a cat.
 
 const SOFIAN_VOICE = `
 
-SOFIAN VOICE
+VOICE
 
 Natural Malaysian Malay.
 
@@ -290,9 +397,9 @@ Conversational.
 
 Relaxed.
 
-Slight Malaysian Manglish is acceptable.
+Light Manglish is okay.
 
-Light Northern Malaysian flavour is acceptable.
+Light Northern Malaysian flavour is okay.
 
 Possible words:
 
@@ -309,42 +416,47 @@ haa
 pulak
 ja
 
-BUT:
+But do NOT force slang.
 
-Do not force slang.
+Do NOT put slang in every sentence.
 
-Do not put slang into every sentence.
+Do NOT overdo Northern dialect.
 
-Do not sound like an influencer.
+Do NOT sound like an influencer.
 
-Do not sound like an affiliate marketer.
+Do NOT sound like an affiliate marketer.
 
-Do not sound like corporate marketing.
+Do NOT sound like corporate marketing.
 
-Do not sound like a copywriter.
+Do NOT sound like an advertisement.
 
-Do not sound like ChatGPT.
+Do NOT sound like ChatGPT.
 
-Do not sound Indonesian.
+Do NOT sound Indonesian.
 
-Humour comes from observation.
+Humour should come naturally from observation.
 
-Personality comes from thought.
+Personality should come naturally from thought.
 
-The writing should feel like someone casually talking,
-not someone trying to write a viral post.
+The story should feel like Sofian is thinking out loud.
 
-Desired rhythm:
+Not like someone writing marketing copy.
 
-"Hang pernah tak tengok balik video travel hang, lepastu rasa pening sebab footage bergegar teruk?"
+REFERENCE FEEL:
 
-"Niat pi melancong tu nak simpan kenangan comel-comel."
+"Hang pernah tak tengok balik video travel hang,
+lepas tu rasa pening sebab footage bergegar teruk?"
 
-"Aku bukan kedekut. Aku cuma tak suka duit keluar tanpa sebab."
+"Niat pi melancong tu nak simpan kenangan."
 
-"Aku tengok benda travel, soalan pertama bukan cantik dak? Soalan pertama: boleh masuk beg dak?"
+"Aku bukan kedekut.
+Aku cuma tak suka duit keluar tanpa sebab."
 
-These are references only.
+"Aku tengok benda travel,
+soalan pertama bukan cantik dak?
+Soalan pertama: boleh masuk beg dak?"
+
+These are voice references only.
 
 Do not copy them.
 `;
@@ -356,46 +468,49 @@ Do not copy them.
 
 const STORY_RULES = `
 
-STORY RULES
+STORY
 
-Write a natural Threads story.
+Write a natural Threads storytelling post.
 
 6–10 parts.
 
-The story should develop naturally.
+The story should feel like one continuous thought.
 
-Possible progression:
+Natural progression can be:
 
-Observation
-→ annoyance
-→ thought
-→ tension
+observation
+→ small annoyance
+→ Sofian's thought
+→ practical tension
 → discovery
 → product
 → verified fact
 → opinion
-→ ending
+→ natural ending
 
 Do not force every stage.
-
-Do not make the story sound like a template.
 
 Do not make every part about the product.
 
 Do not dump product information.
 
-Do not write a product review.
+Do not write like a product review.
 
-Do not write an advertisement.
+Do not write like an advertisement.
 
-Do not use hard selling.
+Do not hard sell.
 
-The story should feel like Sofian had a thought
-and simply followed that thought.
+Product reveal should normally happen around Part 4–6.
 
-The product should normally appear around Part 4–6.
+Do not reveal the product in Part 1.
 
-Do not reveal it in Part 1.
+Short and medium sentences.
+
+Avoid repetitive sentence structures.
+
+Avoid every part ending with a punchline.
+
+Avoid generic influencer hooks.
 `;
 
 
@@ -405,37 +520,34 @@ Do not reveal it in Part 1.
 
 const TRUTH_RULES = `
 
-TRUTH RULES
+TRUTH
 
 You do NOT receive the product description.
 
-Therefore:
+You must NOT invent product specifications.
 
-DO NOT invent product facts.
+You must NOT infer specifications from the product name.
 
-DO NOT infer specifications from the product name.
+Do not invent:
 
-DO NOT invent:
+price
+discount
+weight
+dimensions
+battery
+materials
+durability
+performance numbers
+ratings
+reviews
+popularity
+accessories
+compatibility
+water resistance
+storage
+technical specifications
 
-- price
-- discount
-- weight
-- dimensions
-- battery
-- durability
-- materials
-- performance
-- ratings
-- reviews
-- popularity
-- accessories
-- compatibility
-- water resistance
-- storage
-- ease of use
-- additional features
-
-The backend will insert verified facts.
+The backend will insert verified product facts.
 
 Use placeholders.
 
@@ -443,59 +555,52 @@ Use placeholders.
 PERSONAL EXPERIENCE
 ==================================================
 
-Sofian must NOT claim:
+Sofian must NOT claim he:
 
-"I bought it."
+bought the product
+used the product
+tested the product
+tried the product
+carried the product
+held the product
+owned the product
+reviewed the product
 
-"I used it."
+unless explicitly provided.
 
-"I tested it."
+Sofian CAN have an opinion about the concept.
 
-"I tried it."
-
-"I carried it."
-
-"I held it."
-
-"I reviewed it."
-
-"I travelled with it."
-
-unless such experience is explicitly provided.
-
-Sofian can have an opinion without using the product.
-
-Examples:
+For example:
 
 "Konsep macam ni nampak masuk akal."
 
 "Kalau fikir pasal ruang beg, idea macam ni menarik."
 
-"At least konsep dia tak serabut."
+"Aku suka idea benda yang tak serabut."
 
 ==================================================
-TRAVEL FACTS
+TRAVEL
 ==================================================
 
-Do not invent precise circumstances.
+Do not invent precise travel circumstances.
 
 Do not invent:
 
-- bag weight
-- prices
-- distances
-- travel duration
-- exact locations
-- hotels
-- airports
-- trains
-- other travellers
-- specific personal experiences
+specific airports
+specific hotels
+specific train journeys
+specific prices
+specific distances
+specific luggage weights
+specific travel duration
+specific other travellers
+specific reviews
+specific user behaviour
 
 Generic observations are allowed.
 
 ==================================================
-PLACEHOLDERS
+PRODUCT PLACEHOLDERS
 ==================================================
 
 Use:
@@ -513,21 +618,24 @@ exactly once.
 You may use:
 
 {{FACT_2}}
+
 {{FACT_3}}
+
 {{FACT_4}}
+
 {{FACT_5}}
 
 if necessary.
 
-Do not invent the content of the placeholders.
+Never write the actual fact yourself.
 
 ==================================================
 URL
 ==================================================
 
-Never generate URLs.
+Never generate a URL.
 
-Never generate affiliate links.
+Never generate an affiliate link.
 
 ==================================================
 HASHTAGS
@@ -540,14 +648,19 @@ Do not generate hashtags.
 // ============================================================
 // WRITER PROMPT
 // ============================================================
+//
+// IMPORTANT:
+// The actual product name is intentionally NOT sent to the AI.
+// This reduces the chance of the model using known internet
+// knowledge about the product and hallucinating specifications.
+//
+// ============================================================
 
-function buildWriterPrompt(
-    productName
-) {
+function buildWriterPrompt() {
 
     return `
 
-Write a Threads storytelling post for:
+You are writing for:
 
 SOFIAN THE TRAVELLING CAT.
 
@@ -560,126 +673,154 @@ ${STORY_RULES}
 ${TRUTH_RULES}
 
 ==================================================
-PRODUCT CONTEXT
+VERY IMPORTANT
 ==================================================
 
-Product name:
+You are a STORY WRITER.
 
-${productName}
+You are NOT a product researcher.
 
-You know only the product name.
+You are NOT a reviewer.
 
-You DO NOT know its description.
+You are NOT a salesperson.
 
-Do not infer facts from the name.
+You do not know the product specifications.
 
-==================================================
-MOST IMPORTANT RULE
-==================================================
+Do not use outside knowledge.
 
-Do NOT manufacture a fake scene just to make the story interesting.
+Do not guess.
 
-Do not invent:
-
-"aku bawa..."
-
-"aku guna..."
-
-"aku cuba..."
-
-"aku test..."
-
-"aku beli..."
-
-"aku pegang..."
-
-Do not invent what Sofian physically did.
-
-Do not invent what other people did.
-
-Do not invent precise travel circumstances.
-
-Create interest through Sofian's:
-
-- observations
-- thoughts
-- curiosity
-- frustration
-- humour
-- practical thinking
-- personality
-- cat perspective
+The backend will insert the actual product name and verified facts.
 
 ==================================================
 CAT PERSPECTIVE
 ==================================================
 
-Sofian is a travelling cat.
+Sofian is literally a travelling cat.
 
-His cat identity should subtly influence the story.
+His cat identity should subtly influence his observations.
 
-He may notice:
+For example, he may naturally notice:
 
-- food
-- smells
-- humans
-- bags
-- cramped spaces
-- comfort
-- noise
-- unnecessary human behaviour
+food
+smells
+quiet corners
+small spaces
+bags
+human behaviour
+comfort
+noise
 
-Do this naturally.
+But don't turn every paragraph into a cat joke.
 
-Do not force cat jokes.
+Don't repeatedly mention that he is a cat.
 
-Do not say "as a cat" repeatedly.
+Let the perspective come naturally.
 
 ==================================================
 PRODUCT
 ==================================================
 
-Introduce:
+Use this placeholder:
 
 {{PRODUCT_NAME}}
 
 exactly once.
 
-Then introduce:
+Use this verified fact placeholder:
 
 {{FACT_1}}
 
 exactly once.
 
-The product should appear naturally.
+If another fact is genuinely useful,
+you may use:
 
-Do not write a catalogue.
+{{FACT_2}}
 
-Do not repeat its name.
+But do not invent its content.
 
 ==================================================
-VOICE
+WRITING
+==================================================
+
+Do not fabricate a personal experience.
+
+Do not write:
+
+"I bought it."
+
+"I used it."
+
+"I tested it."
+
+"I tried it."
+
+"I carried it."
+
+"I held it."
+
+"I reviewed it."
+
+Instead, Sofian can observe and think.
+
+Example:
+
+"Konsep macam ni nampak masuk akal."
+
+"Kalau fikir pasal travel, benda ringkas memang menarik."
+
+==================================================
+STYLE
 ==================================================
 
 Natural Malaysian Malay.
 
 Casual.
 
-Short and medium sentences.
+Conversational.
 
-Light Northern flavour.
+Slightly playful.
 
-No corporate language.
+Slightly sarcastic.
 
-No advertising language.
+Dry humour.
 
-No Indonesian wording.
+Observational.
 
-Do not over-explain.
+Do not overdo slang.
+
+Do not use Indonesian vocabulary.
 
 Do not sound polished.
 
-Do not try to sound viral.
+Do not sound like an AI.
+
+Do not sound like a copywriter.
+
+Do not sound like an influencer.
+
+Do not try too hard to be funny.
+
+==================================================
+HOOK
+==================================================
+
+Start with a normal observation or thought.
+
+Avoid generic hooks like:
+
+"Guys, korang kena tengok ni!"
+
+"Ini memang wajib!"
+
+"Kalau korang traveller..."
+
+"Travel hack yang ramai tak tahu!"
+
+"Produk viral!"
+
+"Best gila!"
 
 ==================================================
 ENDING
@@ -687,26 +828,28 @@ ENDING
 
 End naturally.
 
-Sofian can:
+Sofian may:
 
-- leave the thought hanging
-- make a small observation
-- think about food
-- notice something around him
-- joke lightly
-- move on
+leave the thought hanging
+make a small observation
+think about food
+notice something nearby
+make a light joke
+move on
 
-Do NOT end with:
+Do not hard sell.
 
-"klik link"
+Do not say:
 
 "beli sekarang"
 
 "wajib beli"
 
-"jangan lepaskan"
+"klik link"
 
 "link di bio"
+
+"jangan lepaskan"
 
 ==================================================
 OUTPUT
@@ -722,11 +865,11 @@ No explanation.
 
 No hashtags.
 
-No URL.
+No URLs.
 
-You may number the parts.
+6–10 parts.
 
-Preferred:
+You may use:
 
 PART 1: ...
 
@@ -734,9 +877,17 @@ PART 2: ...
 
 PART 3: ...
 
-But the backend can handle other numbering formats.
+or:
 
-Write 6–10 parts.
+1. ...
+
+2. ...
+
+3. ...
+
+or simply separate paragraphs.
+
+The backend has a flexible parser.
 `;
 }
 
@@ -966,7 +1117,6 @@ async function callAI(
         geminiError =
             error;
 
-
         console.log(
             "Gemini failed:",
             error.message
@@ -1019,8 +1169,6 @@ function cleanAIOutput(
             .trim();
 
 
-    // Remove markdown fences
-
     cleaned =
         cleaned
             .replace(
@@ -1032,21 +1180,6 @@ function cleanAIOutput(
                 ""
             )
             .trim();
-
-
-    // Remove accidental leading/trailing quotes
-
-    if (
-        cleaned.startsWith('"') &&
-        cleaned.endsWith('"')
-    ) {
-
-        cleaned =
-            cleaned.slice(
-                1,
-                -1
-            );
-    }
 
 
     return cleaned;
@@ -1116,9 +1249,7 @@ function parseStory(
 
     } catch (error) {
 
-        // Not JSON.
         // Continue.
-
     }
 
 
@@ -1127,7 +1258,6 @@ function parseStory(
     // PART 1:
     // Part 1:
     // PART 1.
-    // PART 1 -
     // ========================================================
 
     const partRegex =
@@ -1162,8 +1292,7 @@ function parseStory(
 
 
             const end =
-                i + 1 <
-                matches.length
+                i + 1 < matches.length
                     ? matches[i + 1].index
                     : cleaned.length;
 
@@ -1198,16 +1327,7 @@ function parseStory(
 
     // ========================================================
     // METHOD 3
-    // NORMAL NUMBERED LINES
-    //
-    // 1. ...
-    // 2. ...
-    //
-    // 1) ...
-    // 2) ...
-    //
-    // 1: ...
-    // 2: ...
+    // NUMBERED LINES
     // ========================================================
 
     const lines =
@@ -1263,10 +1383,12 @@ function parseStory(
         lines
             .map(
                 line =>
-                    line.replace(
-                        /^[-•*]\s*/,
-                        ""
-                    ).trim()
+                    line
+                        .replace(
+                            /^\s*[-•*]\s*/,
+                            ""
+                        )
+                        .trim()
             )
             .filter(Boolean);
 
@@ -1282,7 +1404,7 @@ function parseStory(
 
     // ========================================================
     // METHOD 5
-    // PARAGRAPH MODE
+    // PARAGRAPHS
     // ========================================================
 
     const paragraphs =
@@ -1313,7 +1435,7 @@ function parseStory(
 
     // ========================================================
     // METHOD 6
-    // LINE MODE
+    // SIMPLE LINES
     // ========================================================
 
     if (
@@ -1328,8 +1450,6 @@ function parseStory(
     // ========================================================
     // METHOD 7
     // SENTENCE GROUPING
-    //
-    // Last resort if AI gives one continuous paragraph.
     // ========================================================
 
     const sentences =
@@ -1380,9 +1500,6 @@ function parseStory(
                 grouped.length;
 
 
-            // Make sure enough sentences remain
-            // for remaining parts.
-
             if (
                 remainingSentences <=
                 remainingParts
@@ -1418,8 +1535,6 @@ function parseStory(
                     sentences[i];
             }
 
-
-            // Keep chunks reasonably short.
 
             if (
                 current.length >= 140 &&
@@ -1459,11 +1574,11 @@ function parseStory(
     // ========================================================
 
     console.error(
-        "================================================"
+        "=============================================="
     );
 
     console.error(
-        "V1.9.7 PARSER FAILED"
+        "V1.9.8 PARSER FAILED"
     );
 
     console.error(
@@ -1475,7 +1590,7 @@ function parseStory(
     );
 
     console.error(
-        "================================================"
+        "=============================================="
     );
 
 
@@ -1567,17 +1682,19 @@ function validateStoryShell(
 
 
     // --------------------------------------------------------
-    // INVENTED SPECIFICS
+    // UNSUPPORTED CLAIMS
     // --------------------------------------------------------
 
-    if (
-        containsInventedSpecifics(
+    const inventedClaim =
+        getInventedSpecificClaim(
             story
-        )
-    ) {
+        );
+
+
+    if (inventedClaim) {
 
         throw new Error(
-            "AI generated unsupported specific travel/product claims."
+            `AI generated unsupported specific claim: "${inventedClaim}"`
         );
     }
 
@@ -1672,7 +1789,7 @@ function injectProductFacts(
 
 
     // --------------------------------------------------------
-    // FACTS
+    // VERIFIED FACTS
     // --------------------------------------------------------
 
     facts.forEach(
@@ -1705,7 +1822,7 @@ function injectProductFacts(
 
 
     // --------------------------------------------------------
-    // UNRESOLVED PLACEHOLDER
+    // UNRESOLVED PLACEHOLDERS
     // --------------------------------------------------------
 
     const unresolved =
@@ -1747,7 +1864,7 @@ function validateFinalStory(
 
 
     // --------------------------------------------------------
-    // URL PROTECTION
+    // URL
     // --------------------------------------------------------
 
     if (
@@ -1795,6 +1912,24 @@ function validateFinalStory(
 
 
     // --------------------------------------------------------
+    // UNSUPPORTED CLAIM
+    // --------------------------------------------------------
+
+    const inventedClaim =
+        getInventedSpecificClaim(
+            story
+        );
+
+
+    if (inventedClaim) {
+
+        throw new Error(
+            `Unsupported specific claim found in final story: "${inventedClaim}"`
+        );
+    }
+
+
+    // --------------------------------------------------------
     // PRODUCT NAME
     // --------------------------------------------------------
 
@@ -1814,19 +1949,22 @@ function validateFinalStory(
     // PART COUNT
     // --------------------------------------------------------
 
-    const lines =
+    const parts =
         story
             .split("\n")
-            .filter(Boolean);
+            .filter(
+                line =>
+                    line.trim()
+            );
 
 
     if (
-        lines.length < 6 ||
-        lines.length > 10
+        parts.length < 6 ||
+        parts.length > 10
     ) {
 
         throw new Error(
-            `Final story must contain 6–10 parts. Got ${lines.length}.`
+            `Final story must contain 6–10 parts. Got ${parts.length}.`
         );
     }
 
@@ -1864,7 +2002,9 @@ function injectAffiliateUrl(
     }
 
 
-    // Story must NOT already contain a URL.
+    // --------------------------------------------------------
+    // AI STORY MUST NOT ALREADY HAVE URL
+    // --------------------------------------------------------
 
     if (
         containsUrl(
@@ -1881,7 +2021,10 @@ function injectAffiliateUrl(
     const parts =
         story
             .split("\n")
-            .filter(Boolean);
+            .filter(
+                line =>
+                    line.trim()
+            );
 
 
     if (
@@ -1894,7 +2037,10 @@ function injectAffiliateUrl(
     }
 
 
-    // Exact affiliate URL goes ONLY into final part.
+    // --------------------------------------------------------
+    // EXACT URL
+    // ONLY FINAL PART
+    // --------------------------------------------------------
 
     parts[
         parts.length - 1
@@ -1932,11 +2078,11 @@ async function generateStory({
 
 
     console.log(
-        "----------------------------------------"
+        "----------------------------------------------"
     );
 
     console.log(
-        `StoryAff AI ${VERSION}`
+        `StoryAff AI v${VERSION}`
     );
 
     console.log(
@@ -1945,9 +2091,7 @@ async function generateStory({
 
 
     const prompt =
-        buildWriterPrompt(
-            productName
-        );
+        buildWriterPrompt();
 
 
     const ai =
@@ -2231,7 +2375,7 @@ app.post(
 
 
             // ------------------------------------------------
-            // FINAL URL COUNT
+            // URL COUNT
             // ------------------------------------------------
 
             const urls =
@@ -2251,7 +2395,7 @@ app.post(
 
 
             // ------------------------------------------------
-            // EXACT URL CHECK
+            // EXACT URL
             // ------------------------------------------------
 
             if (
