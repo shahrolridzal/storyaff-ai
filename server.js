@@ -14,186 +14,313 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const GEMINI_MODEL = "gemini-3.6-flash";
 const OPENROUTER_MODEL = "openrouter/free";
 
-const VERSION = "1.9.3";
-const PERSONA = "Sofian The Travelling Cat";
 
-const AFFILIATE_URL =
-    "https://s.shopee.com.my/9fKuWm0JZz";
+// ============================================================
+// BASIC HELPERS
+// ============================================================
+
+function containsUrl(text) {
+    if (!text) return false;
+
+    return /https?:\/\/|www\.|t\.me\/|bit\.ly\/|tinyurl\.com|s\.shopee\.com/i.test(
+        String(text)
+    );
+}
+
+
+function containsBannedIndonesian(text) {
+    if (!text) return false;
+
+    const bannedWords = [
+        "bisa",
+        "sangatlah",
+        "kamu",
+        "anda",
+        "nggak",
+        "enggak",
+        "gak",
+        "dong",
+        "banget",
+        "cuma perlu",
+        "langsung saja",
+        "terbaik",
+        "mantap sekali",
+        "wajib banget"
+    ];
+
+    const lower = String(text).toLowerCase();
+
+    return bannedWords.some(word => lower.includes(word));
+}
+
+
+function containsFakeExperience(text) {
+    if (!text) return false;
+
+    const patterns = [
+        /\baku dah guna\b/i,
+        /\baku sudah guna\b/i,
+        /\baku dah cuba\b/i,
+        /\baku sudah cuba\b/i,
+        /\baku dah test\b/i,
+        /\baku sudah test\b/i,
+        /\baku pernah guna\b/i,
+        /\baku pernah cuba\b/i,
+        /\baku pernah test\b/i,
+        /\baku beli\b/i,
+        /\baku dah beli\b/i,
+        /\baku sudah beli\b/i,
+        /\baku pakai\b/i,
+        /\baku dah pakai\b/i,
+        /\baku sudah pakai\b/i,
+        /\baku test\b/i,
+        /\baku cuba\b/i,
+        /\baku guna\b/i
+    ];
+
+    return patterns.some(pattern => pattern.test(text));
+}
+
+
+function extractJson(text) {
+    if (!text) {
+        throw new Error("AI returned empty response.");
+    }
+
+    let cleaned = String(text).trim();
+
+    // Remove markdown fences
+    cleaned = cleaned.replace(/^```json\s*/i, "");
+    cleaned = cleaned.replace(/^```\s*/i, "");
+    cleaned = cleaned.replace(/\s*```$/i, "");
+
+    // Find first JSON object
+    const firstBrace = cleaned.indexOf("{");
+    const lastBrace = cleaned.lastIndexOf("}");
+
+    if (firstBrace !== -1 && lastBrace !== -1) {
+        cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    }
+
+    try {
+        return JSON.parse(cleaned);
+    } catch (error) {
+        throw new Error("AI returned invalid JSON.");
+    }
+}
+
+
+function normalizeParts(parts) {
+    if (!Array.isArray(parts)) {
+        throw new Error("Story parts must be an array.");
+    }
+
+    return parts
+        .map(part => String(part || "").trim())
+        .filter(Boolean);
+}
+
+
+function splitProductFacts(description) {
+    if (!description) return [];
+
+    return String(description)
+        .split(/(?<=[.!?])\s+|\n+/)
+        .map(x => x.trim())
+        .filter(Boolean)
+        .slice(0, 5);
+}
+
+
+function replacePlaceholders(story, productName, facts) {
+    let output = story;
+
+    output = output.replace(
+        /\{\{PRODUCT_NAME\}\}/g,
+        productName
+    );
+
+    facts.forEach((fact, index) => {
+        const placeholder = `{{FACT_${index + 1}}}`;
+
+        output = output.replace(
+            new RegExp(
+                placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+                "g"
+            ),
+            fact
+        );
+    });
+
+    return output;
+}
+
+
+function cleanStoryParts(parts) {
+    return parts.map((part, index) => {
+        let clean = String(part).trim();
+
+        // Remove AI numbering if it added it
+        clean = clean.replace(
+            /^\s*(?:part|bahagian)\s*\d+\s*[:.)-]?\s*/i,
+            ""
+        );
+
+        // Also remove accidental numbered format
+        clean = clean.replace(
+            /^\s*\d+\s*[:.)-]\s*/,
+            ""
+        );
+
+        return `${index + 1}. ${clean.trim()}`;
+    });
+}
 
 
 // ============================================================
-// SOFIAN V1.9.3
-// TWO-STAGE ENGINE
-//
-// STAGE 1:
-// SOFIAN BRAIN
-//
-// STAGE 2:
-// SOFIAN WRITER
-//
-// AI is NOT allowed to invent the story from zero.
+// SOFIAN PERSONA
 // ============================================================
 
+const SOFIAN_IDENTITY = `
+Sofian The Travelling Cat is literally a travelling cat.
 
-// ============================================================
-// SOFIAN CORE
-// ============================================================
+He is NOT a human traveller.
 
-const SOFIAN_CORE = `
-SOFIAN THE TRAVELLING CAT
+He is a cat with human-like thoughts, opinions and storytelling ability.
 
-Sofian is literally a cat.
+His cat identity must naturally exist inside his worldview:
+- he notices smells
+- he notices food
+- he notices strange human behaviour
+- he notices cramped spaces
+- he notices bags and luggage
+- he notices comfort
+- he notices whether something feels troublesome
+- he gets curious
+- he can be lazy
+- he can be practical
+- he can be sarcastic
+- he can observe humans from a cat's perspective
 
-He is a travelling cat with human-like intelligence
-and natural human speech.
+Do NOT repeatedly say "as a cat".
 
-He is NOT a human pretending to be a cat.
+Do NOT make him meow every sentence.
 
-He is NOT an influencer.
+Do NOT turn him into a human influencer called Sofian.
 
-He is NOT a product reviewer.
-
-He is NOT a salesman.
-
-He is NOT a generic Malaysian traveller.
-
-His personality:
-
-- curious
-- practical
-- budget-conscious
-- observant
-- playful
-- slightly sarcastic
-- street-smart
-
-Sofian notices things differently.
-
-He notices:
-
-- food smells
-- places to sit
-- comfortable corners
-- crowded places
-- humans carrying too much stuff
-- unnecessary luggage
-- small spaces
-- strange human behaviour
-- travel inconvenience
-
-But his cat identity must NOT be forced.
-
-Do not repeatedly say:
-
-"I am a cat."
-
-Do not repeatedly say:
-
-"as a cat"
-
-Do not use repeated "meow" jokes.
-
-His cat identity should appear naturally through perspective.
+The reader should naturally feel that the narrator is a travelling cat.
 `;
 
-
-// ============================================================
-// VOICE
-// ============================================================
 
 const SOFIAN_VOICE = `
 VOICE:
 
-Use natural Malaysian Malay.
+Natural Malaysian Malay.
 
-The rhythm should feel close to this:
+Casual.
+
+Conversational.
+
+Slight Malaysian Manglish is okay.
+
+Very light Northern Malaysian flavour.
+
+Possible words:
+hang, pi, mai, sat, awat, dak, depa, noh, kot, haa, pulak, ja.
+
+But DO NOT force these words.
+
+The writing must sound like a Malaysian person thinking out loud,
+not like advertising copy.
+
+Use short and medium sentences.
+
+Avoid corporate language.
+
+Avoid motivational language.
+
+Avoid influencer language.
+
+Avoid "content creator" style.
+
+Avoid polished marketing language.
+
+Avoid fake jokes.
+
+Humour should come from observation.
+
+The personality should come from the way Sofian thinks,
+not from repeatedly inserting slang.
+
+VOICE BENCHMARK:
+
+"Hang pernah tak tengok balik video travel hang, lepastu rasa pening sebab footage bergegar teruk?"
+
+"Niat pi melancong tu nak simpan kenangan comel-comel. Tapi bila playback balik, rasa macam naik roller coaster."
 
 "Aku bukan kedekut. Aku cuma tak suka duit keluar tanpa sebab."
 
+"Aku tengok benda travel, soalan pertama bukan cantik dak? Soalan pertama: boleh masuk beg dak?"
+
 "Beg 7kg. Barang nak bawa 12kg. Matematik pun surrender."
 
-"Hotel murah. Cantik pulak tu. Aku dah mula suspicious."
-
-"Beg carry-on 7kg tu ruang terhad noh. Mana nak selit barang gedabak."
-
-"Aku tengok benda travel, soalan pertama bukan 'cantik dak?'
-Soalan pertama: boleh masuk beg dak?"
-
-These are rhythm references only.
-
-Do NOT copy them.
-
-Do NOT make every sentence funny.
-
-Do NOT make every sentence polished.
-
-Do NOT force slang.
-
-Use casual Malaysian Malay with light Northern flavour.
-
-Possible words:
-
-hang
-pi
-mai
-sat
-dak
-noh
-kot
-pulak
-ja
-
-Use them naturally.
-
-Do not overuse them.
-
-Never use Indonesian-style language.
+These examples define the naturalness,
+NOT facts that must appear in every story.
 `;
 
 
-// ============================================================
-// BANNED LANGUAGE
-// ============================================================
+const GENERAL_RULES = `
+IMPORTANT:
 
-const BANNED_LANGUAGE = `
-NEVER USE:
+Never fabricate facts.
 
-bisa
-terlihat
-menggunakan
-peralatan
-kualitas
-sebuah
-kemudian
-tentunya
-berbagai
-dapatkan
-memudahkan
-menawarkan
-memberikan
-merupakan pilihan
-alternatif yang praktikal
-peluang bagus
-bagitahu cerita
-secara keseluruhan
-kelebihan utama
-berdasarkan keterangan
-berdasarkan deskripsi
-sebagai traveller
-sebagai seorang traveller
-real talk
-bobot
-sagap
-ciamik
-risok
-bagitu
-tebocor
+Never fabricate personal experience.
 
-Avoid:
+Never claim Sofian bought, used, tested, owned or personally experienced a product.
 
-"produk ini"
+Never claim a product was seen, recommended, used or tested by another person unless explicitly supplied as a fact.
 
-Prefer talking naturally about the actual product name.
+Never invent:
+- prices
+- discounts
+- reviews
+- ratings
+- popularity
+- battery life
+- specifications
+- dimensions
+- weight
+- materials
+- durability
+- performance
+- locations
+- customer opinions
+- personal experience
+
+Do not make unsupported comparisons.
+
+Do not make medical, financial or safety claims.
+
+Do not generate URLs.
+
+Do not generate affiliate links.
+
+Do not write hashtags unless specifically requested.
+
+Do not use hard-sell language.
+
+Do not say:
+"wajib beli"
+"jangan lepaskan"
+"confirm berbaloi"
+"confirm puas hati"
+"best gila"
+"number one"
+"terbaik"
+unless those claims are explicitly supported.
+
+The story must feel like an observation,
+not an advertisement.
 `;
 
 
@@ -201,99 +328,72 @@ Prefer talking naturally about the actual product name.
 // STAGE 1 — SOFIAN BRAIN
 // ============================================================
 
-function buildBrainPrompt(
-    productName,
-    productDescription
-) {
+function buildBrainPrompt(productName) {
 
     return `
 You are SOFIAN BRAIN.
 
-You are not writing the final story.
+Your job is NOT to write the final story.
 
-You are deciding what Sofian would notice,
-think about and say.
+Your job is to think about a travel situation
+that could naturally lead to a product mention.
 
-${SOFIAN_CORE}
+${SOFIAN_IDENTITY}
 
 ${SOFIAN_VOICE}
 
-${BANNED_LANGUAGE}
+${GENERAL_RULES}
 
+VERY IMPORTANT:
 
-PRODUCT NAME:
+You are NOT given the product description.
 
-${productName}
+You must NOT invent what the product does.
 
+You must NOT invent product specifications.
 
-PRODUCT DESCRIPTION:
+You must NOT invent product benefits.
 
-${productDescription}
+You only know that the story will eventually introduce:
 
+"${productName}"
 
-YOUR JOB:
+Treat the product as an unknown object.
 
-Create a small story blueprint.
+Your job is to create the storytelling structure around it.
 
-The blueprint must contain:
+Think about:
 
 1. travel_problem
 2. sofian_observation
 3. sofian_reaction
 4. tension
-5. product_reveal_angle
-6. allowed_product_facts
-7. sofian_opinion
-8. ending_direction
+5. product_role
+6. sofian_opinion
+7. ending_direction
 
-IMPORTANT:
+The product_role must NOT contain product facts.
 
-Only allowed_product_facts may contain product facts.
+For example:
 
-Do NOT invent product specifications.
+GOOD:
+"Introduce the product as a possible answer to the problem."
 
-Do NOT invent price.
+BAD:
+"Introduce it because it is lightweight and has a 3-axis gimbal."
 
-Do NOT invent reviews.
+Return JSON only.
 
-Do NOT invent popularity.
-
-Do NOT invent performance.
-
-Do NOT invent personal experience.
-
-Do NOT say Sofian used the product.
-
-Do NOT say Sofian bought the product.
-
-Do NOT say Sofian tested the product.
-
-The cat perspective should be subtle.
-
-For example, Sofian may care about space in the bag
-because he also wants somewhere comfortable to sit.
-
-Do not force this if it does not fit.
-
-The blueprint should feel like Sofian thinking,
-not like a marketing strategy.
-
-Return ONLY JSON.
-
-Format:
+Required structure:
 
 {
-  "travel_problem": "...",
-  "sofian_observation": "...",
-  "sofian_reaction": "...",
-  "tension": "...",
-  "product_reveal_angle": "...",
-  "allowed_product_facts": [
-    "...",
-    "..."
-  ],
-  "sofian_opinion": "...",
-  "ending_direction": "..."
+  "travel_problem": "",
+  "sofian_observation": "",
+  "sofian_reaction": "",
+  "tension": "",
+  "product_role": "",
+  "sofian_opinion": "",
+  "ending_direction": ""
 }
 `;
 }
@@ -303,174 +403,124 @@ Format:
 // STAGE 2 — SOFIAN WRITER
 // ============================================================
 
-function buildWriterPrompt(
-    productName,
-    productDescription,
-    brain
-) {
+function buildWriterPrompt(brain) {
 
     return `
 You are SOFIAN WRITER.
 
-Your job is to turn the supplied SOFIAN BRAIN
-into a natural Threads story.
+Turn the supplied story blueprint into a natural Threads storytelling post.
 
-You are NOT allowed to invent a new story direction.
-
-You must follow the brain.
-
-${SOFIAN_CORE}
+${SOFIAN_IDENTITY}
 
 ${SOFIAN_VOICE}
 
-${BANNED_LANGUAGE}
+${GENERAL_RULES}
 
+STORY BLUEPRINT:
 
-PRODUCT:
+${JSON.stringify(brain, null, 2)}
 
-${productName}
+CRITICAL PRODUCT RULE:
 
+You DO NOT know the product description.
 
-PRODUCT DESCRIPTION:
+You are intentionally NOT given the product facts.
 
-${productDescription}
+Therefore you MUST NOT invent product facts.
 
+The backend will insert the real product facts later.
 
-SOFIAN BRAIN:
+You have these placeholders:
 
-${JSON.stringify(
-        brain,
-        null,
-        2
-    )}
+{{PRODUCT_NAME}}
 
+{{FACT_1}}
 
-WRITING RULES:
+{{FACT_2}}
 
-Create 6-10 story parts.
+{{FACT_3}}
 
-Each part must contain natural conversational Malay.
+{{FACT_4}}
 
-The story should feel like Sofian is casually thinking out loud.
+{{FACT_5}}
 
-Not like an advertisement.
+Use {{PRODUCT_NAME}} exactly ONCE.
 
-Not like a review.
+Use {{FACT_1}} exactly ONCE.
 
-Not like a product description.
+You may use {{FACT_2}} if it exists.
 
-Not like an AI-generated article.
+Do not invent what FACT_1 or FACT_2 says.
 
+Treat those placeholders as factual information supplied later by the backend.
 
-STRUCTURE:
+IMPORTANT:
+
+The story must still feel natural when the placeholders are replaced.
+
+Example structure:
 
 Part 1:
-Start with an observation or small annoyance.
+Observation / hook.
 
 Part 2:
-Develop the problem.
+Small travel problem.
 
 Part 3:
-Let Sofian react or make a small observation.
+Sofian's reaction.
 
 Part 4:
-Build the tension or trade-off.
+Tension or trade-off.
 
 Part 5:
-Naturally introduce the product.
+Natural product reveal using {{PRODUCT_NAME}}.
 
 Part 6:
-Mention only relevant product facts.
+Use {{FACT_1}} naturally.
 
 Part 7:
-Give Sofian's opinion.
+Sofian's opinion.
 
-Final part:
-End casually.
+Part 8:
+Soft ending.
 
-The product does NOT have to appear exactly at Part 5.
-But do not reveal it immediately unless it genuinely fits.
+This is only a suggested structure.
+You may use 6–10 parts.
 
+Do not force the product into the story too early.
 
-VERY IMPORTANT:
+Do not make every part about the product.
 
-Do not claim Sofian personally used the product.
+Do not sound like an advertisement.
 
-Do not claim Sofian bought the product.
+Do not claim personal use.
 
-Do not claim Sofian tested the product.
+Do not say:
+"I used it"
+"I tried it"
+"I bought it"
+"I tested it"
+"I've been using it"
+"I brought it with me"
+"I took it travelling"
 
-Do not claim Sofian owns the product.
+unless such experience was explicitly supplied.
 
-Do not invent facts.
+Do NOT generate URLs.
 
-Do not add facts outside allowed_product_facts.
+Do NOT generate affiliate links.
 
-Do not add URLs.
+Do NOT generate hashtags.
 
-Do not add affiliate links.
+Return JSON only.
 
-Do not use Indonesian.
-
-Do not use formal product-review language.
-
-Do not force cat jokes.
-
-Do not say "as a cat".
-
-Do not repeatedly say "I am a cat".
-
-Do not use "meow" unless genuinely necessary.
-
-
-SOFIAN'S CAT IDENTITY:
-
-The reader should understand that Sofian is a cat
-through his perspective.
-
-A natural example of the kind of thinking allowed:
-
-"Ruang dalam beg tu bukan untuk barang manusia saja.
-Aku pun nak tempat duduk."
-
-Do NOT copy that exact sentence.
-
-Do not force this into every story.
-
-
-VOICE TEST:
-
-If the story sounds like:
-
-"produk ini menawarkan..."
-"merupakan pilihan..."
-"alternatif praktikal..."
-"sesuai untuk traveller..."
-
-then rewrite it.
-
-If it sounds like a human marketing copywriter,
-rewrite it.
-
-If it sounds like an Indonesian writer,
-rewrite it.
-
-If it sounds like a generic AI travel blogger,
-rewrite it.
-
-
-Return ONLY JSON.
-
-Format:
+Required structure:
 
 {
-  "style": "travel_story",
-  "part_count": 7,
   "parts": [
-    {
-      "part": 1,
-      "text": "..."
-    }
+    "",
+    "",
+    ""
   ]
 }
 `;
@@ -478,1640 +528,758 @@ Format:
 
 
 // ============================================================
-// JSON CLEANER
+// AI PROVIDERS
 // ============================================================
 
-function cleanJSON(text) {
+async function callGemini(prompt) {
 
-    if (!text) {
-        throw new Error(
-            "Empty AI response"
-        );
+    if (!GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is not configured.");
     }
-
-    let cleaned =
-        text.trim();
-
-    if (
-        cleaned.startsWith("```")
-    ) {
-
-        cleaned =
-            cleaned
-                .replace(
-                    /^```json/i,
-                    ""
-                )
-                .replace(
-                    /^```/i,
-                    ""
-                )
-                .replace(
-                    /```$/i,
-                    ""
-                )
-                .trim();
-    }
-
-    const firstBrace =
-        cleaned.indexOf("{");
-
-    const lastBrace =
-        cleaned.lastIndexOf("}");
-
-    if (
-        firstBrace !== -1 &&
-        lastBrace !== -1
-    ) {
-
-        cleaned =
-            cleaned.substring(
-                firstBrace,
-                lastBrace + 1
-            );
-    }
-
-    return JSON.parse(
-        cleaned
-    );
-}
-
-
-// ============================================================
-// TEXT HELPERS
-// ============================================================
-
-function flattenParts(
-    result
-) {
-
-    if (
-        !result ||
-        !Array.isArray(
-            result.parts
-        )
-    ) {
-
-        return "";
-    }
-
-    return result.parts
-        .map(
-            part =>
-                part.text || ""
-        )
-        .join(" ");
-}
-
-
-function containsURL(
-    text
-) {
-
-    if (!text) {
-        return false;
-    }
-
-    return /https?:\/\/|www\.|bit\.ly\/|s\.shopee\./i
-        .test(text);
-}
-
-
-function containsIndonesian(
-    text
-) {
-
-    if (!text) {
-        return false;
-    }
-
-    const forbidden = [
-
-        "bisa",
-        "terlihat",
-        "menggunakan",
-        "peralatan",
-        "kualitas",
-        "sebuah",
-        "kemudian",
-        "tentunya",
-        "berbagai",
-        "dapatkan",
-        "memudahkan",
-        "menawarkan",
-        "memberikan",
-        "merupakan pilihan"
-    ];
-
-    const lower =
-        text.toLowerCase();
-
-    return forbidden.some(
-        word =>
-            new RegExp(
-                "\\b" +
-                word +
-                "\\b",
-                "i"
-            ).test(lower)
-    );
-}
-
-
-function containsFakeExperience(
-    text
-) {
-
-    if (!text) {
-        return false;
-    }
-
-    const patterns = [
-
-        /\baku\s+dah\s+guna\b/i,
-        /\baku\s+dah\s+cuba\b/i,
-        /\baku\s+dah\s+test\b/i,
-        /\baku\s+dah\s+beli\b/i,
-        /\baku\s+dah\s+pakai\b/i,
-
-        /\baku\s+guna\b/i,
-        /\baku\s+cuba\b/i,
-        /\baku\s+test\b/i,
-        /\baku\s+beli\b/i,
-        /\baku\s+pakai\b/i,
-
-        /\baku\s+pernah\s+guna\b/i,
-        /\baku\s+pernah\s+cuba\b/i,
-        /\baku\s+pernah\s+test\b/i,
-        /\baku\s+pernah\s+beli\b/i,
-        /\baku\s+pernah\s+pakai\b/i,
-
-        /\bpengalaman\s+aku\b/i
-    ];
-
-    return patterns.some(
-        pattern =>
-            pattern.test(text)
-    );
-}
-
-
-function containsAICopy(
-    text
-) {
-
-    if (!text) {
-        return false;
-    }
-
-    const forbidden = [
-
-        "produk ini menawarkan",
-        "produk ini memberikan",
-        "merupakan pilihan",
-        "alternatif yang praktikal",
-        "kelebihan utama",
-        "secara keseluruhan",
-        "berdasarkan keterangan",
-        "berdasarkan deskripsi",
-        "boleh dipertimbangkan",
-        "boleh diteliti",
-        "untuk golongan traveller",
-        "sebagai traveller",
-        "sebagai seorang traveller",
-        "dalam dunia travel"
-    ];
-
-    const lower =
-        text.toLowerCase();
-
-    return forbidden.some(
-        phrase =>
-            lower.includes(
-                phrase
-            )
-    );
-}
-
-
-function containsBadSofianLanguage(
-    text
-) {
-
-    if (!text) {
-        return false;
-    }
-
-    const forbidden = [
-
-        "real talk",
-        "bobot",
-        "sagap",
-        "ciamik",
-        "risok",
-        "bagitu",
-        "tebocor",
-        "bagi hassle"
-    ];
-
-    const lower =
-        text.toLowerCase();
-
-    return forbidden.some(
-        phrase =>
-            lower.includes(
-                phrase
-            )
-    );
-}
-
-
-function containsHardSell(
-    text
-) {
-
-    if (!text) {
-        return false;
-    }
-
-    const forbidden = [
-
-        "jangan lepaskan peluang",
-        "grab sekarang",
-        "beli sekarang",
-        "klik sekarang",
-        "jangan tunggu lagi",
-        "limited time",
-        "best deal",
-        "wajib beli",
-        "wajib ada",
-        "confirm berbaloi"
-    ];
-
-    const lower =
-        text.toLowerCase();
-
-    return forbidden.some(
-        phrase =>
-            lower.includes(
-                phrase
-            )
-    );
-}
-
-
-function containsHumanInfluencerFraming(
-    text
-) {
-
-    if (!text) {
-        return false;
-    }
-
-    const forbidden = [
-
-        "sebagai travel blogger",
-        "sebagai content creator",
-        "sebagai influencer",
-        "aku sebagai traveller",
-        "aku sebagai manusia"
-    ];
-
-    const lower =
-        text.toLowerCase();
-
-    return forbidden.some(
-        phrase =>
-            lower.includes(
-                phrase
-            )
-    );
-}
-
-
-function countHashtags(
-    text
-) {
-
-    const matches =
-        text.match(
-            /#[A-Za-z0-9_]+/g
-        );
-
-    return matches
-        ? matches.length
-        : 0;
-}
-
-
-function countNorthernWords(
-    text
-) {
-
-    const words = [
-
-        "hang",
-        "pi",
-        "mai",
-        "sat",
-        "awat",
-        "dak",
-        "noh",
-        "kot",
-        "pulak",
-        "ja"
-    ];
-
-    let count = 0;
-
-    for (
-        const word of words
-    ) {
-
-        const regex =
-            new RegExp(
-                "\\b" +
-                word +
-                "\\b",
-                "gi"
-            );
-
-        const matches =
-            text.match(
-                regex
-            );
-
-        if (matches) {
-            count +=
-                matches.length;
-        }
-    }
-
-    return count;
-}
-
-
-// ============================================================
-// BRAIN VALIDATOR
-// ============================================================
-
-function validateBrain(
-    brain
-) {
-
-    if (
-        !brain ||
-        typeof brain !==
-        "object"
-    ) {
-
-        return {
-            valid: false,
-            reason:
-                "Brain is not an object"
-        };
-    }
-
-    const required = [
-
-        "travel_problem",
-        "sofian_observation",
-        "sofian_reaction",
-        "tension",
-        "product_reveal_angle",
-        "allowed_product_facts",
-        "sofian_opinion",
-        "ending_direction"
-    ];
-
-    for (
-        const key of required
-    ) {
-
-        if (
-            brain[key] ===
-            undefined ||
-            brain[key] ===
-            null
-        ) {
-
-            return {
-                valid: false,
-                reason:
-                    `Brain missing ${key}`
-            };
-        }
-    }
-
-    if (
-        !Array.isArray(
-            brain.allowed_product_facts
-        )
-    ) {
-
-        return {
-            valid: false,
-            reason:
-                "allowed_product_facts must be array"
-        };
-    }
-
-    return {
-        valid: true,
-        reason: null
-    };
-}
-
-
-// ============================================================
-// STORY VALIDATOR
-// ============================================================
-
-function validateStory(
-    result
-) {
-
-    if (
-        !result ||
-        typeof result !==
-        "object"
-    ) {
-
-        return {
-            valid: false,
-            reason:
-                "Story is not an object"
-        };
-    }
-
-    if (
-        !Array.isArray(
-            result.parts
-        )
-    ) {
-
-        return {
-            valid: false,
-            reason:
-                "parts is not an array"
-        };
-    }
-
-    if (
-        result.parts.length <
-            6 ||
-        result.parts.length >
-            10
-    ) {
-
-        return {
-            valid: false,
-            reason:
-                "Story must contain 6-10 parts"
-        };
-    }
-
-    if (
-        result.part_count !==
-        result.parts.length
-    ) {
-
-        return {
-            valid: false,
-            reason:
-                "part_count mismatch"
-        };
-    }
-
-
-    for (
-        let i = 0;
-        i < result.parts.length;
-        i++
-    ) {
-
-        const expected =
-            i + 1;
-
-        const part =
-            result.parts[i];
-
-        if (
-            !part ||
-            typeof part.text !==
-            "string"
-        ) {
-
-            return {
-                valid: false,
-                reason:
-                    `Part ${expected} invalid`
-            };
-        }
-
-        if (
-            !part.text.trim()
-        ) {
-
-            return {
-                valid: false,
-                reason:
-                    `Part ${expected} empty`
-            };
-        }
-
-        if (
-            part.part !==
-            expected
-        ) {
-
-            return {
-                valid: false,
-                reason:
-                    `Part numbering error at ${expected}`
-            };
-        }
-    }
-
-
-    const fullText =
-        flattenParts(
-            result
-        );
-
-
-    if (
-        containsURL(
-            fullText
-        )
-    ) {
-
-        return {
-            valid: false,
-            reason:
-                "AI generated URL"
-        };
-    }
-
-
-    if (
-        containsIndonesian(
-            fullText
-        )
-    ) {
-
-        return {
-            valid: false,
-            reason:
-                "Indonesian language detected"
-        };
-    }
-
-
-    if (
-        containsFakeExperience(
-            fullText
-        )
-    ) {
-
-        return {
-            valid: false,
-            reason:
-                "Possible fake personal experience"
-        };
-    }
-
-
-    if (
-        containsAICopy(
-            fullText
-        )
-    ) {
-
-        return {
-            valid: false,
-            reason:
-                "AI/product-copy language detected"
-        };
-    }
-
-
-    if (
-        containsBadSofianLanguage(
-            fullText
-        )
-    ) {
-
-        return {
-            valid: false,
-            reason:
-                "Artificial Sofian language detected"
-        };
-    }
-
-
-    if (
-        containsHardSell(
-            fullText
-        )
-    ) {
-
-        return {
-            valid: false,
-            reason:
-                "Hard selling detected"
-        };
-    }
-
-
-    if (
-        containsHumanInfluencerFraming(
-            fullText
-        )
-    ) {
-
-        return {
-            valid: false,
-            reason:
-                "Human influencer framing detected"
-        };
-    }
-
-
-    if (
-        countHashtags(
-            fullText
-        ) > 5
-    ) {
-
-        return {
-            valid: false,
-            reason:
-                "Too many hashtags"
-        };
-    }
-
-
-    return {
-        valid: true,
-        reason: null
-    };
-}
-
-
-// ============================================================
-// GEMINI
-// ============================================================
-
-async function callGemini(
-    prompt
-) {
-
-    if (
-        !GEMINI_API_KEY
-    ) {
-
-        throw new Error(
-            "GEMINI_API_KEY is missing"
-        );
-    }
-
 
     const url =
         `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-
-    const response =
-        await fetch(
-            url,
-            {
-
-                method:
-                    "POST",
-
-                headers: {
-                    "Content-Type":
-                        "application/json"
-                },
-
-                body:
-                    JSON.stringify({
-
-                        contents: [
-
-                            {
-                                role:
-                                    "user",
-
-                                parts: [
-
-                                    {
-                                        text:
-                                            prompt
-                                    }
-
-                                ]
-                            }
-
-                        ],
-
-                        generationConfig: {
-
-                            temperature:
-                                0.75,
-
-                            topP:
-                                0.9,
-
-                            maxOutputTokens:
-                                1800
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            contents: [
+                {
+                    parts: [
+                        {
+                            text: prompt
                         }
-                    })
+                    ]
+                }
+            ],
+            generationConfig: {
+                temperature: 0.65,
+                responseMimeType: "application/json"
             }
-        );
+        })
+    });
 
+    const data = await response.json();
 
-    const data =
-        await response.json();
-
-
-    if (
-        !response.ok
-    ) {
-
+    if (!response.ok) {
         throw new Error(
-            `Gemini error ${response.status}: ` +
-            JSON.stringify(data)
+            data?.error?.message ||
+            "Gemini request failed."
         );
     }
-
 
     const text =
-        data
-            ?.candidates?.[0]
-            ?.content?.parts?.[0]
-            ?.text;
-
+        data?.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!text) {
-
-        throw new Error(
-            "Gemini returned empty response"
-        );
+        throw new Error("Gemini returned empty response.");
     }
-
 
     return text;
 }
 
 
-// ============================================================
-// OPENROUTER
-// ============================================================
+async function callOpenRouter(prompt) {
 
-async function callOpenRouter(
-    systemPrompt,
-    userPrompt
-) {
-
-    if (
-        !OPENROUTER_API_KEY
-    ) {
-
-        throw new Error(
-            "OPENROUTER_API_KEY is missing"
-        );
+    if (!OPENROUTER_API_KEY) {
+        throw new Error("OPENROUTER_API_KEY is not configured.");
     }
 
+    const response = await fetch(
+        "https://openrouter.ai/api/v1/chat/completions",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                "HTTP-Referer": "https://storyaff-ai.onrender.com",
+                "X-Title": "StoryAff AI"
+            },
+            body: JSON.stringify({
+                model: OPENROUTER_MODEL,
+                temperature: 0.65,
+                messages: [
+                    {
+                        role: "user",
+                        content: prompt
+                    }
+                ]
+            })
+        }
+    );
 
-    const response =
-        await fetch(
-            "https://openrouter.ai/api/v1/chat/completions",
-            {
+    const data = await response.json();
 
-                method:
-                    "POST",
-
-                headers: {
-
-                    "Content-Type":
-                        "application/json",
-
-                    "Authorization":
-                        `Bearer ${OPENROUTER_API_KEY}`,
-
-                    "HTTP-Referer":
-                        "https://storyaff-ai.onrender.com",
-
-                    "X-Title":
-                        "StoryAff AI"
-                },
-
-                body:
-                    JSON.stringify({
-
-                        model:
-                            OPENROUTER_MODEL,
-
-                        temperature:
-                            0.75,
-
-                        max_tokens:
-                            1800,
-
-                        messages: [
-
-                            {
-                                role:
-                                    "system",
-
-                                content:
-                                    systemPrompt
-                            },
-
-                            {
-                                role:
-                                    "user",
-
-                                content:
-                                    userPrompt
-                            }
-
-                        ]
-                    })
-            }
-        );
-
-
-    const data =
-        await response.json();
-
-
-    if (
-        !response.ok
-    ) {
-
+    if (!response.ok) {
         throw new Error(
-            `OpenRouter error ${response.status}: ` +
-            JSON.stringify(data)
+            data?.error?.message ||
+            "OpenRouter request failed."
         );
     }
-
 
     const text =
-        data
-            ?.choices?.[0]
-            ?.message?.content;
-
+        data?.choices?.[0]?.message?.content;
 
     if (!text) {
-
-        throw new Error(
-            "OpenRouter returned empty response"
-        );
+        throw new Error("OpenRouter returned empty response.");
     }
-
 
     return text;
 }
 
 
-// ============================================================
-// RUN ONE AI STAGE
-// ============================================================
+async function callAI(prompt) {
 
-async function runAI(
-    prompt,
-    stage
-) {
+    let geminiError = null;
 
-    const providers = [];
+    // Gemini first
+    try {
+        const text = await callGemini(prompt);
 
-    if (
-        GEMINI_API_KEY
-    ) {
-        providers.push(
-            "gemini"
-        );
-    }
+        return {
+            provider: "gemini",
+            text
+        };
 
-    if (
-        OPENROUTER_API_KEY
-    ) {
-        providers.push(
-            "openrouter"
+    } catch (error) {
+
+        geminiError = error;
+
+        console.log(
+            "Gemini failed:",
+            error.message
         );
     }
 
 
-    let lastError =
-        null;
+    // OpenRouter fallback
+    try {
 
+        const text = await callOpenRouter(prompt);
 
-    for (
-        const provider
-        of providers
-    ) {
+        return {
+            provider: "openrouter",
+            text
+        };
 
-        try {
-
-            let raw;
-
-
-            if (
-                provider ===
-                "gemini"
-            ) {
-
-                raw =
-                    await callGemini(
-                        prompt
-                    );
-
-            } else {
-
-                raw =
-                    await callOpenRouter(
-                        stage ===
-                            "brain"
-                            ? `
-You are Sofian Brain.
-
-Think naturally as a travelling cat.
-
-Do not write marketing copy.
-Do not invent facts.
-Return JSON only.
-`
-                            : `
-You are Sofian Writer.
-
-Write natural Malaysian Malay.
-
-Sofian is literally a travelling cat.
-
-Do not sound like an influencer,
-reviewer or advertisement.
-
-Return JSON only.
-`,
-                        prompt
-                    );
-            }
-
-
-            const result =
-                cleanJSON(
-                    raw
-                );
-
-
-            return {
-
-                provider,
-
-                model:
-                    provider ===
-                    "gemini"
-                        ? GEMINI_MODEL
-                        : OPENROUTER_MODEL,
-
-                result
-            };
-
-
-        } catch (
-            error
-        ) {
-
-            lastError =
-                error;
-
-            console.error(
-                `[V1.9.3] ${stage} ${provider} failed:`,
-                error.message
-            );
-        }
-    }
-
-
-    throw (
-        lastError ||
-        new Error(
-            `No AI provider available for ${stage}`
-        )
-    );
-}
-
-
-// ============================================================
-// GENERATE BRAIN
-// ============================================================
-
-async function generateBrain(
-    productName,
-    productDescription
-) {
-
-    let lastError =
-        null;
-
-
-    for (
-        let attempt = 1;
-        attempt <= 2;
-        attempt++
-    ) {
-
-        try {
-
-            const prompt =
-                buildBrainPrompt(
-                    productName,
-                    productDescription
-                );
-
-
-            const response =
-                await runAI(
-                    prompt,
-                    "brain"
-                );
-
-
-            const validation =
-                validateBrain(
-                    response.result
-                );
-
-
-            if (
-                validation.valid
-            ) {
-
-                return response;
-            }
-
-
-            lastError =
-                new Error(
-                    validation.reason
-                );
-
-
-        } catch (
-            error
-        ) {
-
-            lastError =
-                error;
-        }
-    }
-
-
-    throw (
-        lastError ||
-        new Error(
-            "Brain generation failed"
-        )
-    );
-}
-
-
-// ============================================================
-// GENERATE STORY
-// ============================================================
-
-async function generateStory(
-    productName,
-    productDescription,
-    brain
-) {
-
-    let lastError =
-        null;
-
-
-    for (
-        let attempt = 1;
-        attempt <= 2;
-        attempt++
-    ) {
-
-        try {
-
-            const prompt =
-                buildWriterPrompt(
-                    productName,
-                    productDescription,
-                    brain
-                );
-
-
-            const response =
-                await runAI(
-                    prompt,
-                    "writer"
-                );
-
-
-            const validation =
-                validateStory(
-                    response.result
-                );
-
-
-            if (
-                validation.valid
-            ) {
-
-                return response;
-            }
-
-
-            console.log(
-                "[V1.9.3] Writer validation failed:",
-                validation.reason
-            );
-
-
-            lastError =
-                new Error(
-                    validation.reason
-                );
-
-
-        } catch (
-            error
-        ) {
-
-            lastError =
-                error;
-        }
-    }
-
-
-    throw (
-        lastError ||
-        new Error(
-            "Story generation failed"
-        )
-    );
-}
-
-
-// ============================================================
-// FINAL AFFILIATE INJECTION
-// ============================================================
-
-function injectAffiliate(
-    story,
-    affiliateUrl
-) {
-
-    if (
-        !affiliateUrl
-    ) {
+    } catch (error) {
 
         throw new Error(
-            "Affiliate URL missing"
+            `Both AI providers failed. Gemini: ${geminiError?.message || "unknown"} | OpenRouter: ${error.message}`
+        );
+    }
+}
+
+
+// ============================================================
+// BRAIN VALIDATION
+// ============================================================
+
+function validateBrain(brain) {
+
+    const required = [
+        "travel_problem",
+        "sofian_observation",
+        "sofian_reaction",
+        "tension",
+        "product_role",
+        "sofian_opinion",
+        "ending_direction"
+    ];
+
+    for (const field of required) {
+
+        if (
+            !brain[field] ||
+            typeof brain[field] !== "string"
+        ) {
+            throw new Error(
+                `Brain missing field: ${field}`
+            );
+        }
+    }
+
+    const brainText = JSON.stringify(brain);
+
+    if (containsUrl(brainText)) {
+        throw new Error(
+            "Brain generated a URL."
         );
     }
 
+    if (containsBannedIndonesian(brainText)) {
+        throw new Error(
+            "Brain contains banned Indonesian wording."
+        );
+    }
 
-    const finalPartIndex =
-        story.parts.length - 1;
+    return true;
+}
 
 
-    story.parts[
-        finalPartIndex
-    ].text =
-        story.parts[
-            finalPartIndex
-        ].text.trim() +
+// ============================================================
+// STORY SHELL VALIDATION
+// ============================================================
 
-        `\n\n👉 ${affiliateUrl}` +
+function validateStoryShell(parts, facts) {
 
-        `\n(Pautan afiliat)`;
+    if (!Array.isArray(parts)) {
+        throw new Error(
+            "Writer did not return story parts."
+        );
+    }
 
+    if (parts.length < 6 || parts.length > 10) {
+        throw new Error(
+            `Story must contain 6–10 parts. Got ${parts.length}.`
+        );
+    }
+
+    const combined = parts.join("\n");
+
+    if (containsUrl(combined)) {
+        throw new Error(
+            "Writer generated a URL."
+        );
+    }
+
+    if (containsBannedIndonesian(combined)) {
+        throw new Error(
+            "Writer contains banned Indonesian wording."
+        );
+    }
+
+    if (containsFakeExperience(combined)) {
+        throw new Error(
+            "Writer generated fake personal experience."
+        );
+    }
+
+    const productNameCount =
+        (combined.match(/\{\{PRODUCT_NAME\}\}/g) || []).length;
+
+    if (productNameCount !== 1) {
+        throw new Error(
+            `{{PRODUCT_NAME}} must appear exactly once. Found ${productNameCount}.`
+        );
+    }
+
+    const fact1Count =
+        (combined.match(/\{\{FACT_1\}\}/g) || []).length;
+
+    if (fact1Count !== 1) {
+        throw new Error(
+            `{{FACT_1}} must appear exactly once. Found ${fact1Count}.`
+        );
+    }
+
+    // If the description has multiple facts,
+    // the writer may use FACT_2 but cannot use
+    // placeholders that don't exist.
+    for (let i = 2; i <= 5; i++) {
+
+        const placeholder =
+            `{{FACT_${i}}}`;
+
+        const count =
+            (combined.match(
+                new RegExp(
+                    placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+                    "g"
+                )
+            ) || []).length;
+
+        if (count > 0 && !facts[i - 1]) {
+            throw new Error(
+                `Writer used ${placeholder}, but that fact does not exist.`
+            );
+        }
+
+        if (count > 1) {
+            throw new Error(
+                `${placeholder} may only appear once.`
+            );
+        }
+    }
+
+    return true;
+}
+
+
+// ============================================================
+// PRODUCT FACT INJECTION
+// ============================================================
+
+function injectProductFacts(parts, productName, productDescription) {
+
+    const facts = splitProductFacts(
+        productDescription
+    );
+
+    if (!facts.length) {
+        throw new Error(
+            "Product description contains no usable facts."
+        );
+    }
+
+    // At minimum FACT_1 must exist.
+    let story = parts.join("\n");
+
+    story = replacePlaceholders(
+        story,
+        productName,
+        facts
+    );
+
+    // Make sure no placeholder survives
+    const leftoverPlaceholder =
+        /\{\{(?:PRODUCT_NAME|FACT_\d+)\}\}/g;
+
+    if (leftoverPlaceholder.test(story)) {
+        throw new Error(
+            "Story contains unresolved product placeholders."
+        );
+    }
 
     return story;
 }
 
 
 // ============================================================
-// MAIN GENERATOR
+// FINAL STORY VALIDATION
 // ============================================================
 
-async function generateFullStory(
+function validateFinalStory(story, productName) {
+
+    if (!story) {
+        throw new Error(
+            "Final story is empty."
+        );
+    }
+
+    if (containsUrl(story)) {
+        throw new Error(
+            "Final story unexpectedly contains a URL."
+        );
+    }
+
+    if (containsBannedIndonesian(story)) {
+        throw new Error(
+            "Final story contains banned Indonesian wording."
+        );
+    }
+
+    if (containsFakeExperience(story)) {
+        throw new Error(
+            "Final story contains possible fake personal experience."
+        );
+    }
+
+    if (!story.includes(productName)) {
+        throw new Error(
+            "Product name missing from final story."
+        );
+    }
+
+    const parts = story
+        .split("\n")
+        .filter(Boolean);
+
+    if (parts.length < 6 || parts.length > 10) {
+        throw new Error(
+            `Final story must contain 6–10 parts. Got ${parts.length}.`
+        );
+    }
+
+    return true;
+}
+
+
+// ============================================================
+// AFFILIATE INJECTION
+// ============================================================
+
+function injectAffiliateUrl(story, affiliateUrl) {
+
+    if (!affiliateUrl) {
+        throw new Error(
+            "Affiliate URL is required."
+        );
+    }
+
+    if (!/^https?:\/\/.+/i.test(affiliateUrl)) {
+        throw new Error(
+            "Invalid affiliate URL."
+        );
+    }
+
+    // The story must NEVER already contain a URL.
+    if (containsUrl(story)) {
+        throw new Error(
+            "Cannot inject affiliate URL because story already contains a URL."
+        );
+    }
+
+    const parts = story
+        .split("\n")
+        .filter(Boolean);
+
+    if (parts.length < 6) {
+        throw new Error(
+            "Story needs at least 6 parts before affiliate injection."
+        );
+    }
+
+    // Remove accidental previous affiliate marker
+    const cleaned = parts.map(part =>
+        part.replace(
+            /\s*AFFILIATE_LINK\s*$/i,
+            ""
+        ).trim()
+    );
+
+    // Inject ONLY into final part.
+    cleaned[cleaned.length - 1] =
+        `${cleaned[cleaned.length - 1]}\n${affiliateUrl}`;
+
+    return cleaned.join("\n");
+}
+
+
+// ============================================================
+// FULL GENERATION PIPELINE
+// ============================================================
+
+async function generateStory({
     productName,
     productDescription
-) {
+}) {
 
-    const brainResponse =
-        await generateBrain(
+    if (!productName) {
+        throw new Error(
+            "productName is required."
+        );
+    }
+
+    if (!productDescription) {
+        throw new Error(
+            "productDescription is required."
+        );
+    }
+
+
+    // --------------------------------------------------------
+    // STEP 1
+    // Sofian Brain
+    // --------------------------------------------------------
+
+    const brainPrompt =
+        buildBrainPrompt(productName);
+
+    const brainAI =
+        await callAI(brainPrompt);
+
+    const brain =
+        extractJson(brainAI.text);
+
+    validateBrain(brain);
+
+
+    // --------------------------------------------------------
+    // STEP 2
+    // Sofian Writer
+    // --------------------------------------------------------
+
+    const writerPrompt =
+        buildWriterPrompt(brain);
+
+    const writerAI =
+        await callAI(writerPrompt);
+
+    const writer =
+        extractJson(writerAI.text);
+
+    let parts =
+        normalizeParts(writer.parts);
+
+
+    // --------------------------------------------------------
+    // STEP 3
+    // Validate AI shell
+    // --------------------------------------------------------
+
+    const facts =
+        splitProductFacts(productDescription);
+
+    validateStoryShell(
+        parts,
+        facts
+    );
+
+
+    // --------------------------------------------------------
+    // STEP 4
+    // Add numbering
+    // --------------------------------------------------------
+
+    parts =
+        cleanStoryParts(parts);
+
+
+    // --------------------------------------------------------
+    // STEP 5
+    // Backend fact injection
+    // --------------------------------------------------------
+
+    let finalStory =
+        injectProductFacts(
+            parts,
             productName,
             productDescription
         );
 
 
-    console.log(
-        "[V1.9.3] Brain provider:",
-        brainResponse.provider
+    // --------------------------------------------------------
+    // STEP 6
+    // Final validation
+    // --------------------------------------------------------
+
+    validateFinalStory(
+        finalStory,
+        productName
     );
-
-
-    const storyResponse =
-        await generateStory(
-            productName,
-            productDescription,
-            brainResponse.result
-        );
-
-
-    console.log(
-        "[V1.9.3] Writer provider:",
-        storyResponse.provider
-    );
-
-
-    const finalStory =
-        injectAffiliate(
-            storyResponse.result,
-            AFFILIATE_URL
-        );
 
 
     return {
+        success: true,
 
-        brainProvider:
-            brainResponse.provider,
+        provider: {
+            brain: brainAI.provider,
+            writer: writerAI.provider
+        },
 
-        brainModel:
-            brainResponse.model,
+        brain,
 
-        writerProvider:
-            storyResponse.provider,
-
-        writerModel:
-            storyResponse.model,
-
-        brain:
-            brainResponse.result,
-
-        story:
-            finalStory
+        story: finalStory
     };
 }
 
 
 // ============================================================
-// ROOT
+// ROUTES
 // ============================================================
 
-app.get(
-    "/",
-    (req, res) => {
+app.get("/", (req, res) => {
 
-        res.json({
+    res.json({
+        success: true,
+        app: "StoryAff AI",
+        version: "1.9.4",
+        status: "online"
+    });
 
-            name:
-                "StoryAff AI",
-
-            status:
-                "online",
-
-            version:
-                VERSION,
-
-            persona:
-                PERSONA,
-
-            engine:
-                "Sofian V1.9.3 Brain → Writer",
-
-            message:
-                "StoryAff AI is running."
-        });
-    }
-);
+});
 
 
-// ============================================================
-// HEALTH
-// ============================================================
+app.get("/api/health", (req, res) => {
 
-app.get(
-    "/api/health",
-    (req, res) => {
+    res.json({
+        success: true,
+        status: "healthy",
+        version: "1.9.4",
+        geminiConfigured: !!GEMINI_API_KEY,
+        openrouterConfigured: !!OPENROUTER_API_KEY
+    });
 
-        res.json({
-
-            success:
-                true,
-
-            status:
-                "healthy",
-
-            version:
-                VERSION,
-
-            persona:
-                PERSONA,
-
-            engine:
-                "Sofian V1.9.3 Brain → Writer",
-
-            providers: {
-
-                gemini:
-                    Boolean(
-                        GEMINI_API_KEY
-                    ),
-
-                openrouter:
-                    Boolean(
-                        OPENROUTER_API_KEY
-                    )
-            }
-        });
-    }
-);
+});
 
 
 // ============================================================
 // AI TEST
 // ============================================================
 
-app.post(
-    "/api/ai/test",
-    async (req, res) => {
+app.post("/api/ai/test", async (req, res) => {
 
-        try {
+    try {
 
-            const {
+        const {
+            productName,
+            productDescription
+        } = req.body;
+
+        if (!productName) {
+            return res.status(400).json({
+                success: false,
+                error: "productName is required."
+            });
+        }
+
+        if (!productDescription) {
+            return res.status(400).json({
+                success: false,
+                error: "productDescription is required."
+            });
+        }
+
+
+        const result =
+            await generateStory({
                 productName,
                 productDescription
-            } = req.body;
-
-
-            if (
-                !productName
-            ) {
-
-                return res
-                    .status(400)
-                    .json({
-
-                        success:
-                            false,
-
-                        error:
-                            "productName is required"
-                    });
-            }
-
-
-            if (
-                !productDescription
-            ) {
-
-                return res
-                    .status(400)
-                    .json({
-
-                        success:
-                            false,
-
-                        error:
-                            "productDescription is required"
-                    });
-            }
-
-
-            const generated =
-                await generateFullStory(
-                    productName,
-                    productDescription
-                );
-
-
-            return res.json({
-
-                success:
-                    true,
-
-                version:
-                    VERSION,
-
-                persona:
-                    PERSONA,
-
-                engine:
-                    "Sofian V1.9.3 Brain → Writer",
-
-                brain_provider:
-                    generated.brainProvider,
-
-                brain_model:
-                    generated.brainModel,
-
-                writer_provider:
-                    generated.writerProvider,
-
-                writer_model:
-                    generated.writerModel,
-
-                brain:
-                    generated.brain,
-
-                data:
-                    generated.story
             });
 
 
-        } catch (
+        return res.json({
+            success: true,
+            version: "1.9.4",
+            provider: result.provider,
+            brain: result.brain,
+            story: result.story
+        });
+
+
+    } catch (error) {
+
+        console.error(
+            "/api/ai/test error:",
             error
-        ) {
+        );
 
-            console.error(
-                "[V1.9.3] /api/ai/test:",
-                error
-            );
-
-
-            return res
-                .status(500)
-                .json({
-
-                    success:
-                        false,
-
-                    version:
-                        VERSION,
-
-                    error:
-                        error.message
-                });
-        }
+        return res.status(500).json({
+            success: false,
+            error: error.message
+        });
     }
-);
+
+});
 
 
 // ============================================================
 // AI GENERATE
 // ============================================================
 
-app.post(
-    "/api/ai/generate",
-    async (req, res) => {
+app.post("/api/ai/generate", async (req, res) => {
 
-        try {
+    try {
 
-            const {
+        const {
+            productName,
+            productDescription,
+            affiliateUrl
+        } = req.body;
+
+
+        if (!productName) {
+            return res.status(400).json({
+                success: false,
+                error: "productName is required."
+            });
+        }
+
+
+        if (!productDescription) {
+            return res.status(400).json({
+                success: false,
+                error: "productDescription is required."
+            });
+        }
+
+
+        if (!affiliateUrl) {
+            return res.status(400).json({
+                success: false,
+                error: "affiliateUrl is required."
+            });
+        }
+
+
+        // ----------------------------------------------------
+        // Generate story WITHOUT affiliate URL
+        // ----------------------------------------------------
+
+        const result =
+            await generateStory({
                 productName,
-                productDescription,
-                affiliateUrl
-            } = req.body;
-
-
-            if (
-                !productName
-            ) {
-
-                return res
-                    .status(400)
-                    .json({
-
-                        success:
-                            false,
-
-                        error:
-                            "productName is required"
-                    });
-            }
-
-
-            if (
-                !productDescription
-            ) {
-
-                return res
-                    .status(400)
-                    .json({
-
-                        success:
-                            false,
-
-                        error:
-                            "productDescription is required"
-                    });
-            }
-
-
-            if (
-                !affiliateUrl
-            ) {
-
-                return res
-                    .status(400)
-                    .json({
-
-                        success:
-                            false,
-
-                        error:
-                            "affiliateUrl is required"
-                    });
-            }
-
-
-            const generated =
-                await generateFullStory(
-                    productName,
-                    productDescription
-                );
-
-
-            const finalStory =
-                injectAffiliate(
-                    generated.story,
-                    affiliateUrl
-                );
-
-
-            return res.json({
-
-                success:
-                    true,
-
-                version:
-                    VERSION,
-
-                persona:
-                    PERSONA,
-
-                engine:
-                    "Sofian V1.9.3 Brain → Writer",
-
-                brain_provider:
-                    generated.brainProvider,
-
-                brain_model:
-                    generated.brainModel,
-
-                writer_provider:
-                    generated.writerProvider,
-
-                writer_model:
-                    generated.writerModel,
-
-                brain:
-                    generated.brain,
-
-                data:
-                    finalStory
+                productDescription
             });
 
 
-        } catch (
-            error
-        ) {
+        // ----------------------------------------------------
+        // Inject affiliate URL ONCE
+        // ----------------------------------------------------
 
-            console.error(
-                "[V1.9.3] /api/ai/generate:",
-                error
+        const finalStory =
+            injectAffiliateUrl(
+                result.story,
+                affiliateUrl
             );
 
 
-            return res
-                .status(500)
-                .json({
+        // ----------------------------------------------------
+        // Final URL count protection
+        // ----------------------------------------------------
 
-                    success:
-                        false,
+        const urlMatches =
+            finalStory.match(
+                /https?:\/\/[^\s]+/gi
+            ) || [];
 
-                    version:
-                        VERSION,
 
-                    error:
-                        error.message
-                });
+        if (urlMatches.length !== 1) {
+            throw new Error(
+                `Affiliate URL protection failed. Expected 1 URL, found ${urlMatches.length}.`
+            );
         }
-    }
-);
 
 
-// ============================================================
-// START SERVER
-// ============================================================
+        return res.json({
 
-app.listen(
-    PORT,
-    () => {
+            success: true,
 
-        console.log(
-            `StoryAff AI v${VERSION} running on port ${PORT}`
+            version: "1.9.4",
+
+            provider: result.provider,
+
+            story: finalStory,
+
+            affiliateUrlInjected: true,
+
+            urlCount: urlMatches.length
+
+        });
+
+
+    } catch (error) {
+
+        console.error(
+            "/api/ai/generate error:",
+            error
         );
+
+        return res.status(500).json({
+
+            success: false,
+
+            error: error.message
+
+        });
+
     }
-);
+
+});
+
+
+// ============================================================
+// SERVER
+// ============================================================
+
+app.listen(PORT, () => {
+
+    console.log(
+        `StoryAff AI v1.9.4 running on port ${PORT}`
+    );
+
+});
