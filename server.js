@@ -7,7 +7,7 @@ const app = express();
 app.use(express.json({ limit: "1mb" }));
 
 const PORT = process.env.PORT || 3000;
-const VERSION = "2.2.0";
+const VERSION = "2.2.1";
 
 // ============================================================
 // CONFIG
@@ -18,13 +18,13 @@ const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 
 const GEMINI_MODEL =
-  process.env.GEMINI_MODEL || "gemini-3.6-flash";
+  process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
 const OPENROUTER_MODEL =
   process.env.OPENROUTER_MODEL || "openrouter/free";
 
 const OPENAI_MODEL =
-  process.env.OPENAI_MODEL || "gpt-5.6-luna";
+  process.env.OPENAI_MODEL || "gpt-4o-mini";
 
 
 // ============================================================
@@ -212,42 +212,14 @@ START
 → REACTION
 → END
 
-For example:
+The story should have movement.
 
-"Pagi ni plan nak keluar cari breakfast cepat je."
-
-This is the START.
-
-"Tahu-tahu dah pusing tiga lorong."
-
-This creates MOVEMENT / FRICTION.
-
-"Bukan tak ada kedai makan. Banyak."
-
-This is OBSERVATION.
-
-"Last-last nampak satu stall."
-
-This is DISCOVERY.
-
-"Tengok sign. Tengok makanan. Tengok sign balik."
-
-This is REACTION / DECISION.
-
-"Okay. Yang ni boleh. Duduk."
-
-This is PAYOFF.
-
-"Breakfast settle."
-
-This is END.
-
-Do not stop immediately after introducing the discovery.
+Do not stop immediately after the discovery.
 
 BAD:
 "Last-last nampak satu stall."
 
-The story is unfinished.
+This is unfinished.
 
 BETTER:
 "Last-last nampak satu stall. Tengok sign. Tengok makanan. Okay. Yang ni boleh."
@@ -255,7 +227,8 @@ BETTER:
 The story has completed a moment.
 
 IMPORTANT:
-The final paragraph must feel COMPLETE.
+
+The final paragraph MUST feel complete.
 
 Never end with:
 - an unfinished sentence
@@ -265,11 +238,11 @@ Never end with:
 - "Rupanya..."
 - "Bila sampai..."
 - "Dekat situ ada..."
-unless the sentence is fully completed and the story continues.
+unless the story continues and completes the thought.
 
-Do NOT add paragraphs just to reach a paragraph count.
+Do NOT add paragraphs simply to reach a target number.
 
-Story completion is more important than length.
+Story completion is more important than paragraph count.
 `;
 
 
@@ -281,6 +254,7 @@ const SOFIAN_STYLE_EXAMPLES = `
 STYLE RHYTHM EXAMPLES
 
 These examples are ONLY rhythm references.
+
 Do not copy them literally.
 Do not reuse the exact situations unless they naturally fit.
 
@@ -341,7 +315,6 @@ Ambil lagi.
 Dekat cashier baru Sofian sedar tujuan asal masuk kedai tadi sebenarnya cuma nak beli air.
 
 Air pun terlupa.
-
 `;
 
 
@@ -419,6 +392,29 @@ Do not fabricate specific factual claims just to make the story more interesting
 
 
 // ============================================================
+// INDONESIAN BLOCKLIST
+// ============================================================
+
+const BANNED_INDONESIAN = [
+  "nggak",
+  "enggak",
+  "banget",
+  "dong",
+  "kamu",
+  "anda",
+  "gue",
+  "gua",
+  "ngapain",
+  "rekam",
+  "traveling",
+  "aja",
+  "udah",
+  "udahnya",
+  "kok"
+];
+
+
+// ============================================================
 // ANTI AI RULES
 // ============================================================
 
@@ -427,8 +423,13 @@ ANTI-AI RULES
 
 Never use generic AI travel writing.
 
-Avoid phrases such as:
+STRICTLY BANNED WORDS (Indonesian vocabulary):
 
+${BANNED_INDONESIAN.join(", ")}
+
+Do not use these words.
+
+Avoid phrases such as:
 "yang menariknya"
 "menariknya"
 "menurut aku"
@@ -443,7 +444,6 @@ Avoid phrases such as:
 "penyelesaian"
 
 Avoid generic tourism language:
-
 "hidden gem"
 "must visit"
 "perfect destination"
@@ -482,29 +482,6 @@ No forced CTA.
 
 
 // ============================================================
-// INDONESIAN BLOCKLIST
-// ============================================================
-
-const BANNED_INDONESIAN = [
-  "nggak",
-  "enggak",
-  "banget",
-  "dong",
-  "kamu",
-  "anda",
-  "gue",
-  "gua",
-  "ngapain",
-  "rekam",
-  "traveling",
-  "aja",
-  "udah",
-  "udahnya",
-  "kok"
-];
-
-
-// ============================================================
 // OUTPUT RULES
 // ============================================================
 
@@ -520,6 +497,7 @@ Target:
 - can be slightly longer if the story naturally needs it
 
 IMPORTANT:
+
 Do NOT force exactly 4, 5, 6, 7 or 8 paragraphs.
 
 Paragraph count is secondary.
@@ -527,6 +505,7 @@ Paragraph count is secondary.
 Story quality and completion are primary.
 
 The story should:
+
 1. Start close to the actual moment.
 2. Have some movement.
 3. Include at least one small observation.
@@ -534,7 +513,7 @@ The story should:
 5. End naturally.
 6. Feel like Sofian actually experienced the moment.
 
-The last paragraph MUST be a complete thought.
+The final paragraph MUST be a complete thought.
 
 Do not explain the story after the ending.
 
@@ -546,7 +525,7 @@ Do not add:
 
 
 // ============================================================
-// SOFIAN MEMORY
+// MEMORY
 // ============================================================
 
 let sofianMemory = {
@@ -555,6 +534,7 @@ let sofianMemory = {
   recentMoods: [],
   recentStories: []
 };
+
 
 function rememberStory(data) {
   if (data.topic) {
@@ -631,10 +611,13 @@ Additional details:
 ${details}
 
 IMPORTANT:
+
 Use the provided information as the foundation.
 
 Do not invent unnecessary specifics.
+
 Do not force the location into every sentence.
+
 Do not mention the topic mechanically.
 
 Turn the input into an actual small moment that happened to Sofian.
@@ -678,6 +661,7 @@ Recent moods:
 ${sofianMemory.recentMoods.join(", ") || "None"}
 
 Do not repeat the previous story.
+
 Do not copy previous wording.
 
 FINAL INSTRUCTION:
@@ -698,7 +682,9 @@ Let something happen.
 
 Let Sofian react.
 
-Then stop when the story is naturally complete.
+Finish the moment.
+
+Then stop.
 `;
 }
 
@@ -717,13 +703,16 @@ async function callGemini(prompt) {
 
   const response = await fetch(url, {
     method: "POST",
+
     headers: {
       "Content-Type": "application/json"
     },
+
     body: JSON.stringify({
       contents: [
         {
           role: "user",
+
           parts: [
             {
               text: prompt
@@ -731,6 +720,7 @@ async function callGemini(prompt) {
           ]
         }
       ],
+
       generationConfig: {
         temperature: 0.85,
         topP: 0.9,
@@ -744,7 +734,8 @@ async function callGemini(prompt) {
   if (!response.ok) {
     throw new Error(
       `Gemini HTTP ${response.status}: ${
-        data?.error?.message || JSON.stringify(data)
+        data?.error?.message ||
+        JSON.stringify(data)
       }`
     );
   }
@@ -756,7 +747,9 @@ async function callGemini(prompt) {
       .trim();
 
   if (!text) {
-    throw new Error("Gemini returned empty response");
+    throw new Error(
+      "Gemini returned empty response"
+    );
   }
 
   return text;
@@ -769,32 +762,44 @@ async function callGemini(prompt) {
 
 async function callOpenRouter(prompt) {
   if (!OPENROUTER_API_KEY) {
-    throw new Error("OPENROUTER_API_KEY missing");
+    throw new Error(
+      "OPENROUTER_API_KEY missing"
+    );
   }
 
   const response = await fetch(
     "https://openrouter.ai/api/v1/chat/completions",
     {
       method: "POST",
+
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-        "HTTP-Referer": "https://storyaff.ai",
-        "X-Title": "Sofian The Travelling Cat"
+        "Authorization":
+          `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer":
+          "https://storyaff.ai",
+        "X-Title":
+          "Sofian The Travelling Cat"
       },
+
       body: JSON.stringify({
         model: OPENROUTER_MODEL,
+
         messages: [
           {
             role: "system",
+
             content:
               "You are Sofian The Travelling Cat. Follow the user's story-writing instructions exactly."
           },
+
           {
             role: "user",
+
             content: prompt
           }
         ],
+
         temperature: 0.85,
         top_p: 0.9,
         max_tokens: 700
@@ -807,7 +812,8 @@ async function callOpenRouter(prompt) {
   if (!response.ok) {
     throw new Error(
       `OpenRouter HTTP ${response.status}: ${
-        data?.error?.message || JSON.stringify(data)
+        data?.error?.message ||
+        JSON.stringify(data)
       }`
     );
   }
@@ -816,7 +822,9 @@ async function callOpenRouter(prompt) {
     data?.choices?.[0]?.message?.content?.trim();
 
   if (!text) {
-    throw new Error("OpenRouter returned empty response");
+    throw new Error(
+      "OpenRouter returned empty response"
+    );
   }
 
   return text;
@@ -829,30 +837,40 @@ async function callOpenRouter(prompt) {
 
 async function callOpenAI(prompt) {
   if (!OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY missing");
+    throw new Error(
+      "OPENAI_API_KEY missing"
+    );
   }
 
   const response = await fetch(
     "https://api.openai.com/v1/chat/completions",
     {
       method: "POST",
+
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENAI_API_KEY}`
+        "Authorization":
+          `Bearer ${OPENAI_API_KEY}`
       },
+
       body: JSON.stringify({
         model: OPENAI_MODEL,
+
         messages: [
           {
             role: "system",
+
             content:
               "You are Sofian The Travelling Cat, a Malaysian travelling cat storyteller."
           },
+
           {
             role: "user",
+
             content: prompt
           }
         ],
+
         temperature: 0.85,
         top_p: 0.9,
         max_tokens: 700
@@ -865,7 +883,8 @@ async function callOpenAI(prompt) {
   if (!response.ok) {
     throw new Error(
       `OpenAI HTTP ${response.status}: ${
-        data?.error?.message || JSON.stringify(data)
+        data?.error?.message ||
+        JSON.stringify(data)
       }`
     );
   }
@@ -874,7 +893,9 @@ async function callOpenAI(prompt) {
     data?.choices?.[0]?.message?.content?.trim();
 
   if (!text) {
-    throw new Error("OpenAI returned empty response");
+    throw new Error(
+      "OpenAI returned empty response"
+    );
   }
 
   return text;
@@ -919,7 +940,8 @@ async function generateWithFallback(prompt) {
 
   for (const provider of providers) {
     try {
-      const text = await provider.fn(prompt);
+      const text =
+        await provider.fn(prompt);
 
       return {
         provider: provider.name,
@@ -935,7 +957,9 @@ async function generateWithFallback(prompt) {
   }
 
   throw new Error(
-    `All AI providers failed: ${JSON.stringify(errors)}`
+    `All AI providers failed: ${JSON.stringify(
+      errors
+    )}`
   );
 }
 
@@ -951,118 +975,35 @@ function cleanAIOutput(text) {
 
   // Remove markdown code fences
   output = output
-    .replace(/^```(?:text|markdown)?/i, "")
-    .replace(/```$/i, "")
+    .replace(
+      /^```(?:text|markdown)?/i,
+      ""
+    )
+    .replace(
+      /```$/i,
+      ""
+    )
     .trim();
 
-  // Remove accidental title markers
-  output = output.replace(/^Title\s*:\s*.*\n/i, "");
+  // Remove accidental title
+  output = output.replace(
+    /^Title\s*:\s*.*\n/i,
+    ""
+  );
 
-  // Remove numbering if AI ignores instructions
+  // Remove accidental numbering
   output = output.replace(
     /^\s*(?:\d+[\.\)]|-)\s+/gm,
     ""
   );
 
   // Remove excessive blank lines
-  output = output.replace(/\n{3,}/g, "\n\n");
+  output = output.replace(
+    /\n{3,}/g,
+    "\n\n"
+  );
 
   return output.trim();
-}
-
-
-// ============================================================
-// PARSE STORY
-// ============================================================
-
-function parseStory(text) {
-  const cleaned = cleanAIOutput(text);
-
-  if (!cleaned) {
-    return [];
-  }
-
-  /*
-   * Primary parsing:
-   * Preserve natural paragraph structure.
-   */
-
-  let paragraphs = cleaned
-    .split(/\n\s*\n/)
-    .map(p => p.trim())
-    .filter(Boolean);
-
-  /*
-   * Some models return each sentence on a separate line.
-   * Do not automatically treat every line as a paragraph.
-   *
-   * If there are many short lines, group them into natural
-   * paragraph-sized chunks.
-   */
-
-  if (paragraphs.length < 3) {
-    const lines = cleaned
-      .split(/\n/)
-      .map(x => x.trim())
-      .filter(Boolean);
-
-    if (lines.length >= 4) {
-      paragraphs = groupShortLines(lines);
-    }
-  }
-
-  /*
-   * Safety fallback:
-   * If the AI ignored line breaks completely, split sentences
-   * into small natural groups.
-   */
-
-  if (paragraphs.length === 1) {
-    const sentences = splitSentences(paragraphs[0]);
-
-    if (sentences.length >= 5) {
-      paragraphs = groupSentences(sentences);
-    }
-  }
-
-  return paragraphs;
-}
-
-
-// ============================================================
-// GROUP SHORT LINES
-// ============================================================
-
-function groupShortLines(lines) {
-  const groups = [];
-  let current = [];
-
-  for (const line of lines) {
-    current.push(line);
-
-    const currentText = current.join(" ");
-
-    /*
-     * Prefer paragraphs around 1–3 sentences.
-     */
-
-    const sentenceCount =
-      splitSentences(currentText).length;
-
-    if (
-      sentenceCount >= 2 ||
-      currentText.length >= 170
-    ) {
-      groups.push(currentText.trim());
-      current = [];
-    }
-  }
-
-  if (current.length) {
-    groups.push(current.join(" ").trim());
-  }
-
-  return groups;
 }
 
 
@@ -1079,30 +1020,147 @@ function splitSentences(text) {
 
 
 // ============================================================
-// GROUP SENTENCES
+// SMART LINE GROUPING
 // ============================================================
 
-function groupSentences(sentences) {
+function groupShortLines(lines) {
   const groups = [];
+
   let current = [];
 
-  for (const sentence of sentences) {
-    current.push(sentence);
+  for (const line of lines) {
+    current.push(line);
+
+    const currentText =
+      current.join(" ");
+
+    const sentences =
+      splitSentences(currentText);
+
+    /*
+     * Group roughly 2–3 sentences together.
+     */
 
     if (
-      current.length >= 2 ||
-      current.join(" ").length >= 160
+      sentences.length >= 2 ||
+      currentText.length >= 120
     ) {
-      groups.push(current.join(" "));
+      groups.push(
+        currentText.trim()
+      );
+
       current = [];
     }
   }
 
   if (current.length) {
-    groups.push(current.join(" "));
+    groups.push(
+      current.join(" ").trim()
+    );
   }
 
   return groups;
+}
+
+
+// ============================================================
+// PARAGRAPH GROUPING
+// ============================================================
+
+function groupSentences(sentences) {
+  const groups = [];
+
+  let current = [];
+
+  for (const sentence of sentences) {
+    current.push(sentence);
+
+    const currentText =
+      current.join(" ");
+
+    if (
+      current.length >= 2 ||
+      currentText.length >= 120
+    ) {
+      groups.push(
+        currentText.trim()
+      );
+
+      current = [];
+    }
+  }
+
+  if (current.length) {
+    groups.push(
+      current.join(" ").trim()
+    );
+  }
+
+  return groups;
+}
+
+
+// ============================================================
+// PARSE STORY
+// ============================================================
+
+function parseStory(text) {
+  const cleaned =
+    cleanAIOutput(text);
+
+  if (!cleaned) {
+    return [];
+  }
+
+  /*
+   * First preserve actual paragraph breaks.
+   */
+
+  let paragraphs =
+    cleaned
+      .split(/\n\s*\n/)
+      .map(p => p.trim())
+      .filter(Boolean);
+
+  /*
+   * If model returned lots of individual lines,
+   * intelligently group them.
+   */
+
+  if (paragraphs.length >= 6) {
+    const mostlyShort =
+      paragraphs.filter(
+        p => p.length < 70
+      ).length / paragraphs.length;
+
+    if (mostlyShort > 0.75) {
+      paragraphs =
+        groupShortLines(
+          paragraphs
+        );
+    }
+  }
+
+  /*
+   * If model didn't create paragraphs,
+   * try sentence grouping.
+   */
+
+  if (paragraphs.length === 1) {
+    const sentences =
+      splitSentences(
+        paragraphs[0]
+      );
+
+    if (sentences.length >= 5) {
+      paragraphs =
+        groupSentences(
+          sentences
+        );
+    }
+  }
+
+  return paragraphs;
 }
 
 
@@ -1111,38 +1169,78 @@ function groupSentences(sentences) {
 // ============================================================
 
 function containsBannedIndonesian(text) {
-  const lower = text.toLowerCase();
+  const lower =
+    text.toLowerCase();
 
-  return BANNED_INDONESIAN.some(word => {
-    const regex = new RegExp(
-      `\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
-      "i"
-    );
+  return BANNED_INDONESIAN.some(
+    word => {
+      const escaped =
+        word.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          "\\$&"
+        );
 
-    return regex.test(lower);
-  });
+      const regex =
+        new RegExp(
+          `\\b${escaped}\\b`,
+          "i"
+        );
+
+      return regex.test(lower);
+    }
+  );
 }
 
 
 // ============================================================
-// ENDING QUALITY CHECK
+// CTA CHECK
+// ============================================================
+
+function containsForcedCTA(text) {
+  const lower =
+    text.toLowerCase();
+
+  const ctaPatterns = [
+    "follow untuk",
+    "follow for",
+    "like dan share",
+    "like & share",
+    "comment below",
+    "komen bawah",
+    "jangan lupa follow",
+    "where should sofian go",
+    "where should sofian pergi"
+  ];
+
+  return ctaPatterns.some(
+    phrase =>
+      lower.includes(phrase)
+  );
+}
+
+
+// ============================================================
+// INCOMPLETE ENDING CHECK
 // ============================================================
 
 function hasIncompleteEnding(parts) {
-  if (!parts.length) return true;
+  if (!parts.length) {
+    return true;
+  }
 
-  const last = parts[parts.length - 1].trim();
+  const last =
+    parts[parts.length - 1]
+      .trim();
 
   if (last.length < 8) {
     return true;
   }
 
   /*
-   * A final sentence without normal punctuation is not always
-   * wrong in Threads-style writing, so only flag obvious cases.
+   * Obvious unfinished endings.
    */
 
-  const obviousIncompletePatterns = [
+  const incompletePatterns = [
     /\blast-last\s+nampak$/i,
     /\btiba-tiba$/i,
     /\brupanya$/i,
@@ -1153,12 +1251,33 @@ function hasIncompleteEnding(parts) {
     /\btapi$/i,
     /\bdan$/i,
     /\batau$/i,
-    /\byang$/i
+    /\byang$/i,
+    /\bdengan$/i,
+    /\buntuk$/i,
+    /\bke$/i,
+    /\bdi$/i
   ];
 
-  return obviousIncompletePatterns.some(
-    regex => regex.test(last)
-  );
+  if (
+    incompletePatterns.some(
+      regex => regex.test(last)
+    )
+  ) {
+    return true;
+  }
+
+  /*
+   * If the last character is an obvious
+   * continuation marker, flag it.
+   */
+
+  if (
+    /[:,-]$/.test(last)
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 
@@ -1169,19 +1288,33 @@ function hasIncompleteEnding(parts) {
 function validateStory(parts) {
   const errors = [];
 
-  if (!parts || !parts.length) {
-    errors.push("Story is empty");
+  if (
+    !parts ||
+    !parts.length
+  ) {
+    errors.push(
+      "Story is empty"
+    );
+
     return {
       valid: false,
       errors
     };
   }
 
+  /*
+   * Minimum 3 paragraphs.
+   */
+
   if (parts.length < 3) {
     errors.push(
-      `Story must have at least 3 natural paragraphs. Found ${parts.length}`
+      `Story needs more development. Found ${parts.length} paragraphs`
     );
   }
+
+  /*
+   * Avoid excessive fragmentation.
+   */
 
   if (parts.length > 10) {
     errors.push(
@@ -1189,49 +1322,103 @@ function validateStory(parts) {
     );
   }
 
-  const fullStory = parts.join(" ");
+  const fullStory =
+    parts.join(" ");
 
   if (fullStory.length < 50) {
-    errors.push("Story is too short");
+    errors.push(
+      "Story is too short"
+    );
   }
 
-  if (containsBannedIndonesian(fullStory)) {
-    errors.push("Possible Indonesian wording detected");
+  if (
+    containsBannedIndonesian(
+      fullStory
+    )
+  ) {
+    errors.push(
+      "Indonesian wording detected"
+    );
   }
 
-  if (hasIncompleteEnding(parts)) {
-    errors.push("Story ending appears incomplete");
+  if (
+    containsForcedCTA(
+      fullStory
+    )
+  ) {
+    errors.push(
+      "Forced CTA detected"
+    );
+  }
+
+  if (
+    hasIncompleteEnding(
+      parts
+    )
+  ) {
+    errors.push(
+      "Story ending appears incomplete"
+    );
   }
 
   /*
    * Detect list-like output.
-   *
-   * If nearly every paragraph is only one short sentence,
-   * the story may be too fragmented.
    */
 
-  const shortParagraphs = parts.filter(
-    p => p.length < 55
-  ).length;
+  const shortParagraphs =
+    parts.filter(
+      p => p.length < 55
+    ).length;
 
   if (
     parts.length >= 6 &&
-    shortParagraphs / parts.length > 0.85
+    shortParagraphs /
+      parts.length >
+      0.85
   ) {
     errors.push(
       "Story is too fragmented and list-like"
     );
   }
 
+  /*
+   * Detect obvious repeated paragraphs.
+   */
+
+  const normalized =
+    parts.map(
+      p =>
+        p
+          .toLowerCase()
+          .replace(
+            /[^a-z0-9\s]/g,
+            ""
+          )
+          .trim()
+    );
+
+  const unique =
+    new Set(normalized);
+
+  if (
+    unique.size <
+    normalized.length
+  ) {
+    errors.push(
+      "Story contains repeated paragraphs"
+    );
+  }
+
   return {
-    valid: errors.length === 0,
+    valid:
+      errors.length === 0,
     errors
   };
 }
 
 
 // ============================================================
-// LIGHT REPAIR
+// REPAIR STORY STRUCTURE
 // ============================================================
 
 function repairStory(parts) {
@@ -1239,38 +1426,107 @@ function repairStory(parts) {
     return parts;
   }
 
-  let repaired = [...parts];
+  let repaired =
+    [...parts];
 
   /*
-   * If the story contains too many tiny paragraphs,
-   * merge neighbouring paragraphs.
+   * If there are too many paragraphs,
+   * merge them intelligently.
    */
 
   if (repaired.length > 8) {
     const merged = [];
+
     let buffer = "";
 
-    for (const paragraph of repaired) {
+    for (
+      const paragraph of repaired
+    ) {
       if (!buffer) {
         buffer = paragraph;
-      } else if (
+        continue;
+      }
+
+      if (
         buffer.length < 100
       ) {
-        buffer += " " + paragraph;
+        buffer +=
+          " " +
+          paragraph;
       } else {
-        merged.push(buffer);
-        buffer = paragraph;
+        merged.push(
+          buffer.trim()
+        );
+
+        buffer =
+          paragraph;
       }
     }
 
     if (buffer) {
-      merged.push(buffer);
+      merged.push(
+        buffer.trim()
+      );
     }
 
-    repaired = merged;
+    repaired =
+      merged;
   }
 
   return repaired;
+}
+
+
+// ============================================================
+// QUALITY RETRY PROMPT
+// ============================================================
+
+function buildRetryPrompt(
+  originalPrompt,
+  validationErrors
+) {
+  return `
+${originalPrompt}
+
+============================================================
+QUALITY CONTROL FAILURE
+============================================================
+
+The previous story failed these checks:
+
+${validationErrors
+  .map(x => `- ${x}`)
+  .join("\n")}
+
+Rewrite the story completely.
+
+Do NOT explain the correction.
+
+The new story MUST:
+
+- sound naturally Malaysian Malay
+- keep Sofian's V1.6 personality
+- remain a real travelling cat
+- contain an actual small event
+- have movement from beginning to end
+- include a natural reaction or decision
+- have a complete ending
+- avoid list-like writing
+- avoid Indonesian vocabulary
+- avoid generic AI travel language
+- avoid fake factual details
+- contain no CTA
+
+Most importantly:
+
+DO NOT stop immediately after introducing something.
+
+If Sofian discovers something, show what he does next.
+
+Finish the small moment.
+
+Return ONLY the finished story.
+`;
 }
 
 
@@ -1279,13 +1535,22 @@ function repairStory(parts) {
 // ============================================================
 
 async function generateSofianStory(input) {
-  const prompt = buildPrompt(input);
+  const prompt =
+    buildPrompt(input);
 
-  const result =
-    await generateWithFallback(prompt);
+  /*
+   * First generation
+   */
+
+  let result =
+    await generateWithFallback(
+      prompt
+    );
 
   let parts =
-    parseStory(result.text);
+    parseStory(
+      result.text
+    );
 
   parts =
     repairStory(parts);
@@ -1294,61 +1559,69 @@ async function generateSofianStory(input) {
     validateStory(parts);
 
   /*
-   * One controlled regeneration if the model clearly
-   * failed the structural quality gate.
-   *
-   * We don't endlessly retry.
+   * One retry only if quality fails.
    */
 
   if (!validation.valid) {
-    const repairPrompt = `
-${prompt}
-
-IMPORTANT QUALITY FIX:
-
-The previous attempt failed these checks:
-
-${validation.errors.join("\n")}
-
-Rewrite the story completely.
-
-This time:
-- make sure something actually happens
-- include a reaction or decision
-- finish the story naturally
-- do not stop at the discovery
-- do not make every sentence a separate paragraph
-- do not use Indonesian wording
-- do not add a CTA
-- do not explain anything
-
-Return ONLY the finished story.
-`;
+    console.log(
+      "SOFIAN QUALITY RETRY:",
+      validation.errors
+    );
 
     try {
-      const retry =
-        await generateWithFallback(repairPrompt);
-
-      parts =
-        repairStory(
-          parseStory(retry.text)
+      const retryPrompt =
+        buildRetryPrompt(
+          prompt,
+          validation.errors
         );
 
-      validation =
-        validateStory(parts);
+      const retry =
+        await generateWithFallback(
+          retryPrompt
+        );
 
-      if (validation.valid) {
-        result.provider =
-          retry.provider;
+      const retryParts =
+        repairStory(
+          parseStory(
+            retry.text
+          )
+        );
 
-        result.text =
-          retry.text;
+      const retryValidation =
+        validateStory(
+          retryParts
+        );
+
+      /*
+       * Use retry only if it actually
+       * passes the quality gate.
+       */
+
+      if (
+        retryValidation.valid
+      ) {
+        result =
+          retry;
+
+        parts =
+          retryParts;
+
+        validation =
+          retryValidation;
       }
 
-    } catch (error) {
-      // Keep the original result if retry fails.
+    } catch (retryError) {
+      console.error(
+        "SOFIAN RETRY ERROR:",
+        retryError.message
+      );
     }
   }
+
+  /*
+   * If still invalid, fail rather than
+   * returning bad content.
+   */
 
   if (!validation.valid) {
     throw new Error(
@@ -1359,158 +1632,291 @@ Return ONLY the finished story.
   }
 
   const story =
-    parts.join("\n\n");
+    parts.join(
+      "\n\n"
+    );
+
+  /*
+   * Save only accepted stories.
+   */
 
   rememberStory({
-    topic: input.topic,
-    location: input.location,
-    mood: input.mood,
+    topic:
+      input.topic,
+
+    location:
+      input.location,
+
+    mood:
+      input.mood,
+
     story
   });
 
   return {
     success: true,
     version: VERSION,
-    character: "Sofian The Travelling Cat",
-    mode: "storyteller",
-    affiliate: false,
-    provider: result.provider,
-    mood: input.mood || "neutral",
-    location: input.location || "",
-    topic: input.topic || "",
+    character:
+      "Sofian The Travelling Cat",
+
+    mode:
+      "storyteller",
+
+    affiliate:
+      false,
+
+    provider:
+      result.provider,
+
+    mood:
+      input.mood ||
+      "neutral",
+
+    location:
+      input.location ||
+      "",
+
+    topic:
+      input.topic ||
+      "",
+
     parts,
+
     story
   };
 }
 
 
 // ============================================================
-// ROOT
-// ============================================================
-
-app.get("/", (req, res) => {
-  res.json({
-    success: true,
-    project: "Sofian The Travelling Cat",
-    version: VERSION,
-    mode: "storyteller",
-    affiliate: false,
-    message:
-      "Sofian is ready to tell a story."
-  });
-});
-
-
-// ============================================================
 // HEALTH
 // ============================================================
 
-app.get("/api/health", (req, res) => {
-  res.json({
-    success: true,
-    version: VERSION,
-    providers: {
-      gemini: !!GEMINI_API_KEY,
-      openrouter: !!OPENROUTER_API_KEY,
-      openai: !!OPENAI_API_KEY
-    }
-  });
-});
+app.get(
+  "/health",
+  (req, res) => {
+    res.json({
+      success: true,
+      status: "online",
+      project:
+        "Sofian The Travelling Cat",
+      version: VERSION,
+      mode:
+        "storyteller",
+      affiliate:
+        false,
+
+      providers: {
+        gemini:
+          !!GEMINI_API_KEY,
+
+        openrouter:
+          !!OPENROUTER_API_KEY,
+
+        openai:
+          !!OPENAI_API_KEY
+      },
+
+      memory: {
+        stories:
+          sofianMemory
+            .recentStories
+            .length,
+
+        topics:
+          sofianMemory
+            .recentTopics
+            .length
+      }
+    });
+  }
+);
+
+
+// ============================================================
+// ROOT
+// ============================================================
+
+app.get(
+  "/",
+  (req, res) => {
+    res.json({
+      success: true,
+      project:
+        "Sofian The Travelling Cat",
+      version: VERSION,
+      mode:
+        "storyteller",
+      affiliate:
+        false,
+
+      endpoints: [
+        "GET /health",
+        "GET /api/sofia/memory",
+        "POST /api/sofia/memory/reset",
+        "POST /generate",
+        "POST /api/sofia/story"
+      ]
+    });
+  }
+);
 
 
 // ============================================================
 // AI TEST
 // ============================================================
 
-app.get("/api/ai/test", async (req, res) => {
-  try {
-    const result =
-      await generateWithFallback(
-        `
+app.get(
+  "/api/ai/test",
+  async (req, res) => {
+    try {
+      const result =
+        await generateWithFallback(
+          `
 Say exactly:
 
 Sofian dah sampai.
 
 Do not add anything else.
 `
-      );
+        );
 
-    res.json({
-      success: true,
-      version: VERSION,
-      provider: result.provider,
-      response: result.text
-    });
+      res.json({
+        success: true,
+        version: VERSION,
+        provider:
+          result.provider,
+        response:
+          result.text
+      });
 
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      version: VERSION,
-      error: error.message
-    });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        version: VERSION,
+        error:
+          error.message
+      });
+    }
   }
-});
+);
 
 
 // ============================================================
 // SOFIAN STORY
 // ============================================================
 
-app.post("/api/sofia/story", async (req, res) => {
-  try {
-    const {
-      topic,
-      location,
-      mood,
-      situation,
-      details
-    } = req.body || {};
-
-    if (!topic) {
-      return res.status(400).json({
-        success: false,
-        version: VERSION,
-        error: "topic is required"
-      });
-    }
-
-    const result =
-      await generateSofianStory({
+app.post(
+  "/api/sofia/story",
+  async (req, res) => {
+    try {
+      const {
         topic,
         location,
         mood,
         situation,
         details
+      } = req.body || {};
+
+      if (!topic) {
+        return res.status(400).json({
+          success: false,
+          version: VERSION,
+          error:
+            "topic is required"
+        });
+      }
+
+      const result =
+        await generateSofianStory({
+          topic,
+          location,
+          mood,
+          situation,
+          details
+        });
+
+      res.json(
+        result
+      );
+
+    } catch (error) {
+      console.error(
+        "SOFIAN STORY ERROR:",
+        error
+      );
+
+      res.status(500).json({
+        success: false,
+        version: VERSION,
+        error:
+          error.message
       });
-
-    res.json(result);
-
-  } catch (error) {
-    console.error(
-      "SOFIAN STORY ERROR:",
-      error
-    );
-
-    res.status(500).json({
-      success: false,
-      version: VERSION,
-      error: error.message
-    });
+    }
   }
-});
+);
+
+
+// ============================================================
+// SIMPLE GENERATE
+// ============================================================
+
+app.post(
+  "/generate",
+  async (req, res) => {
+    try {
+      const input =
+        req.body || {};
+
+      if (!input.topic) {
+        return res.status(400).json({
+          success: false,
+          version: VERSION,
+          error:
+            "topic is required"
+        });
+      }
+
+      const result =
+        await generateSofianStory(
+          input
+        );
+
+      res.json(
+        result
+      );
+
+    } catch (error) {
+      console.error(
+        "GENERATE ERROR:",
+        error
+      );
+
+      res.status(500).json({
+        success: false,
+        version: VERSION,
+        error:
+          error.message
+      });
+    }
+  }
+);
 
 
 // ============================================================
 // MEMORY
 // ============================================================
 
-app.get("/api/sofia/memory", (req, res) => {
-  res.json({
-    success: true,
-    version: VERSION,
-    memory: sofianMemory
-  });
-});
+app.get(
+  "/api/sofia/memory",
+  (req, res) => {
+    res.json({
+      success: true,
+      version: VERSION,
+      memory:
+        sofianMemory
+    });
+  }
+);
 
 
 // ============================================================
@@ -1541,41 +1947,51 @@ app.post(
 // 404
 // ============================================================
 
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    version: VERSION,
-    error: "Endpoint not found"
-  });
-});
+app.use(
+  (req, res) => {
+    res.status(404).json({
+      success: false,
+      version: VERSION,
+      error:
+        "Endpoint not found"
+    });
+  }
+);
 
 
 // ============================================================
-// SERVER
+// SERVER START
 // ============================================================
 
-app.listen(PORT, () => {
-  console.log(
-    `Sofian The Travelling Cat v${VERSION} running on port ${PORT}`
-  );
+app.listen(
+  PORT,
+  () => {
+    console.log(
+      `Sofian The Travelling Cat v${VERSION} running on port ${PORT}`
+    );
 
-  console.log(
-    `Gemini: ${
-      GEMINI_API_KEY ? "configured" : "not configured"
-    }`
-  );
+    console.log(
+      `Gemini: ${
+        GEMINI_API_KEY
+          ? "configured"
+          : "not configured"
+      }`
+    );
 
-  console.log(
-    `OpenRouter: ${
-      OPENROUTER_API_KEY
-        ? "configured"
-        : "not configured"
-    }`
-  );
+    console.log(
+      `OpenRouter: ${
+        OPENROUTER_API_KEY
+          ? "configured"
+          : "not configured"
+      }`
+    );
 
-  console.log(
-    `OpenAI: ${
-      OPENAI_API_KEY ? "configured" : "not configured"
-    }`
-  );
-});
+    console.log(
+      `OpenAI: ${
+        OPENAI_API_KEY
+          ? "configured"
+          : "not configured"
+      }`
+    );
+  }
+);
